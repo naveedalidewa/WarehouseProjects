@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stockroom Admin — Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --teal:#124559;--teal-side:#0f3d4c;--amber:#E8890C;--deal:#B5670A;
+    --ink:#1A1D21;--slate:#64707D;--bg:#F4F6F8;--surface:#fff;--border:#E4E8EC;
+    --instock:#1F8A4C;--low:#C77700;--out:#98A2AF;--red:#C0392B;
+    --shadow:0 1px 2px rgba(20,30,40,.05),0 6px 20px rgba(20,30,40,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;}
+  .app{display:flex;min-height:100vh;}
+
+  /* ---------- sidebar ---------- */
+  .side{width:230px;flex:0 0 230px;background:var(--teal-side);color:#bcd3da;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+  .brand{display:flex;align-items:center;gap:10px;padding:17px 18px 14px;}
+  .brand .m{width:30px;height:30px;border-radius:8px;background:var(--amber);display:flex;align-items:center;justify-content:center;}
+  .brand .t{font-size:15px;font-weight:700;color:#fff;letter-spacing:-.01em;}
+  .nav{display:flex;flex-direction:column;padding-bottom:20px;}
+  .nav .lnk{display:flex;align-items:center;gap:11px;padding:9px 18px;font-size:13px;color:#9fbcc4;font-weight:500;cursor:pointer;user-select:none;border-left:3px solid transparent;}
+  .nav .lnk:hover{color:#fff;}
+  .nav .lnk svg{flex:0 0 auto;stroke:currentColor;}
+  .nav .lnk.on{background:rgba(255,255,255,.10);color:#fff;border-left-color:var(--amber);}
+  .nav .lnk .chev{margin-left:auto;transition:transform .15s;}
+  .nav .grp.open .chev{transform:rotate(90deg);}
+  .nav .sub{display:none;flex-direction:column;background:rgba(0,0,0,.14);}
+  .nav .sub.open{display:flex;}
+  .nav .sub .lnk{padding-left:46px;font-size:12.5px;color:#8fb0b9;}
+  .nav .sub .lnk.on{color:#fff;background:rgba(255,255,255,.08);}
+
+  /* ---------- main ---------- */
+  .main{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .topbar{height:58px;flex:0 0 58px;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:5;}
+  .topbar .ttl{font-size:17px;font-weight:600;letter-spacing:-.01em;}
+  .topbar .rt{display:flex;align-items:center;gap:14px;}
+  .who{display:flex;align-items:center;gap:9px;}
+  .ava{width:32px;height:32px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;}
+  .who .nm{font-size:12.5px;font-weight:600;}
+  .who .rl{font-size:11px;color:var(--slate);}
+  .content{padding:22px 24px 60px;}
+  .page{display:none;}
+  .page.on{display:block;}
+
+  /* ---------- headers ---------- */
+  .phead{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;flex-wrap:wrap;gap:12px;}
+  .phead h1{font-size:21px;font-weight:700;letter-spacing:-.01em;}
+  .phead .sub{font-size:13px;color:var(--slate);margin-top:4px;}
+  .phead .acts{display:flex;gap:8px;flex-wrap:wrap;}
+
+  /* ---------- buttons ---------- */
+  .btn{border:none;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:600;padding:9px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+  .btn.teal{background:var(--teal);color:#fff;}
+  .btn.amber{background:var(--amber);color:#3a2400;}
+  .btn.ghost{background:#fff;border:1px solid var(--border);color:var(--ink);}
+  .btn.red{background:#fff;border:1px solid #ecc9c4;color:var(--red);}
+  .btn.sm{padding:6px 11px;font-size:12px;}
+  .btn.link{background:none;color:var(--teal);padding:4px 2px;}
+  .iconbtn{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;}
+  .iconbtn:hover{background:var(--bg);}
+
+  /* ---------- toolbar (search/filters) ---------- */
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center;}
+  .search{background:#fff;border:1px solid var(--border);border-radius:9px;height:38px;display:flex;align-items:center;gap:8px;padding:0 12px;min-width:220px;}
+  .search input{border:none;outline:none;font-family:inherit;font-size:13px;flex:1;background:none;color:var(--ink);}
+  select.sel{height:38px;border:1px solid var(--border);border-radius:9px;background:#fff;font-family:inherit;font-size:12.5px;color:var(--ink);padding:0 10px;cursor:pointer;}
+
+  /* ---------- cards & tables ---------- */
+  .card{background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;}
+  .card .ch{padding:14px 16px;border-bottom:1px solid var(--border);font-size:14px;font-weight:600;display:flex;justify-content:space-between;align-items:center;}
+  .tbl{width:100%;border-collapse:collapse;}
+  .tbl th{font-size:11px;color:var(--slate);text-align:left;padding:10px 14px;font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap;background:#fafbfc;}
+  .tbl td{font-size:12.5px;padding:11px 14px;border-bottom:1px solid #EFF2F4;vertical-align:middle;white-space:nowrap;}
+  .tbl tr:last-child td{border-bottom:none;}
+  .tbl tbody tr:hover{background:#fafbfc;}
+  .tbl .sub{font-size:11px;color:var(--slate);}
+  .num{text-align:right;font-variant-numeric:tabular-nums;}
+  .mono{font-variant-numeric:tabular-nums;letter-spacing:.02em;}
+  .rowlow{background:#FEF7EC;}
+  .rowlow:hover{background:#FDF1DE;}
+
+  .pill{font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap;}
+  .p-active{background:#E4F3EA;color:var(--instock);}
+  .p-inactive{background:#F1F3F5;color:var(--slate);}
+  .p-draft{background:#EEF1F3;color:var(--teal);}
+  .p-low{background:#FBEEDD;color:var(--low);}
+  .p-pending{background:#FBEEDD;color:var(--low);}
+  .p-received{background:#E4F3EA;color:var(--instock);}
+  .p-partial{background:#FBEEDD;color:var(--low);}
+  .p-paid{background:#E4F3EA;color:var(--instock);}
+  .p-cancelled{background:#F1F3F5;color:var(--slate);}
+  .p-placed{background:#EAF0F2;color:var(--teal);}
+  .p-prep{background:#FBEEDD;color:var(--low);}
+  .p-ship{background:#E4F3EA;color:var(--instock);}
+  .p-unpaid{background:#F1F3F5;color:var(--slate);}
+  .p-new{background:#EAF0F2;color:var(--teal);}
+  .p-match{background:#E4F3EA;color:var(--instock);}
+  .p-warn{background:#FBE9E7;color:var(--red);}
+  .p-ready{background:#E4F3EA;color:var(--instock);}
+  .p-review{background:#FBEEDD;color:var(--low);}
+  .p-danger{background:#FBE9E7;color:#C0392B;}
+  .p-info{background:#EAF0F2;color:var(--teal);}
+  .tline .ev{position:relative;padding:0 0 14px 16px;border-left:2px solid var(--border);margin-left:3px;}
+  .tline .ev:last-child{border-left-color:transparent;padding-bottom:0;}
+  .tline .ev::before{content:"";position:absolute;left:-6px;top:2px;width:10px;height:10px;border-radius:50%;background:var(--teal);border:2px solid #fff;box-shadow:0 0 0 1px var(--border);}
+  .tline .ev .tx{font-size:12.5px;line-height:1.45;}
+  .tline .ev .mt{font-size:11px;color:var(--slate);margin-top:2px;}
+  .warnbar{background:#FBE9E7;border:1px solid #F3D3CE;color:#8a2c22;border-radius:10px;padding:11px 14px;font-size:12.5px;display:flex;gap:9px;align-items:flex-start;margin-bottom:14px;}
+  .warnbar svg{flex:0 0 auto;margin-top:1px;}
+  .sumrow{display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;}
+  .sumrow .lbl{color:var(--slate);}
+  .sumrow.big{font-size:16px;font-weight:700;padding-top:10px;border-top:1px solid var(--border);color:var(--ink);}
+  .acctbox{font-size:12px;line-height:1.7;}
+  .acctbox .lbl{color:var(--slate);}
+  .miniq{width:52px;border:1px solid var(--teal);border-radius:6px;padding:5px 6px;font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums;}
+  .taberow{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+  .tabpill{font-size:12.5px;padding:7px 13px;border-radius:8px;background:#fff;border:1px solid var(--border);color:var(--slate);font-weight:500;cursor:pointer;}
+  .tabpill.on{background:var(--teal);color:#fff;border-color:var(--teal);}
+  .statgrp{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .kv{display:grid;grid-template-columns:130px 1fr;gap:6px 10px;font-size:12.5px;}
+  .kv .k{color:var(--slate);}
+
+  .neg{color:var(--red);font-weight:600;}
+  .pos{color:var(--instock);font-weight:600;}
+  .marginbad{color:var(--red);font-weight:700;}
+
+  .pager{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;font-size:12px;color:var(--slate);border-top:1px solid var(--border);}
+  .pager .pg{display:flex;gap:5px;}
+  .pager .pg button{border:1px solid var(--border);background:#fff;border-radius:6px;min-width:30px;height:30px;font-family:inherit;font-size:12px;cursor:pointer;color:var(--ink);}
+  .pager .pg button.on{background:var(--teal);color:#fff;border-color:var(--teal);}
+
+  /* stat cards */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:20px;}
+  .stat{background:#fff;border:1px solid var(--border);border-radius:12px;padding:15px 17px;box-shadow:var(--shadow);}
+  .stat .k{font-size:12px;color:var(--slate);}
+  .stat .v{font-size:26px;font-weight:700;margin-top:8px;letter-spacing:-.02em;}
+  .stat .d{font-size:11.5px;margin-top:3px;color:var(--slate);}
+  .stat .d.warn{color:var(--low);font-weight:600;}
+  .summ{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px;}
+  .sc{background:#fff;border:1px solid var(--border);border-radius:10px;padding:13px 15px;}
+  .sc .n{font-size:21px;font-weight:700;}
+  .sc .l{font-size:11px;color:var(--slate);margin-top:3px;}
+  .sc.g{border-color:#BFE3CC;background:#F2FAF5;} .sc.g .n{color:var(--instock);}
+  .sc.b{border-color:#CFE0EC;background:#F1F7FB;} .sc.b .n{color:var(--teal);}
+  .sc.r{border-color:#F3D3CE;background:#FDF3F1;} .sc.r .n{color:var(--red);}
+  .sc.a{border-color:#F3DEBE;background:#FDF7EE;} .sc.a .n{color:var(--low);}
+
+  /* forms */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .chartgrid{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;margin-bottom:16px;}
+  .chcard{background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:16px 18px;}
+  .chcard .ct{font-size:13.5px;font-weight:600;margin-bottom:2px;}
+  .chcard .cs{font-size:11.5px;color:var(--slate);margin-bottom:12px;}
+  .chwrap{position:relative;height:230px;}
+  .stat .delta{font-size:11.5px;font-weight:600;margin-top:4px;display:inline-flex;align-items:center;gap:3px;}
+  .stat .delta.up{color:var(--instock);} .stat .delta.down{color:var(--red);}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+  .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .fld{margin-bottom:14px;}
+  .fld label{display:block;font-size:12px;font-weight:500;color:var(--slate);margin-bottom:6px;}
+  .fld label .req{color:var(--red);}
+  .fld input,.fld select,.fld textarea{width:100%;border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-family:inherit;font-size:13px;color:var(--ink);background:#fff;outline:none;}
+  .fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--teal);}
+  .fld input.err{border-color:var(--red);background:#fdf3f1;}
+  .fld .hint{font-size:11px;color:var(--slate);margin-top:5px;}
+  .fld .errmsg{font-size:11px;color:var(--red);margin-top:5px;display:none;}
+  .fld input.err ~ .errmsg{display:block;}
+  .readonly{background:#F4F6F8 !important;color:var(--slate);}
+  .fsect{font-size:13px;font-weight:700;margin:6px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+  .marginout{font-size:19px;font-weight:700;}
+  .switch{display:inline-flex;align-items:center;gap:8px;font-size:13px;}
+  .toggle{width:40px;height:22px;border-radius:12px;background:var(--instock);position:relative;cursor:pointer;}
+  .toggle::after{content:"";position:absolute;top:2px;left:20px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;}
+  .toggle.off{background:#C4CBD2;}
+  .toggle.off::after{left:2px;}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(15,25,32,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:24px;}
+  .overlay.on{display:flex;}
+  .modal{background:#fff;border-radius:14px;width:100%;max-width:640px;max-height:90vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.3);}
+  .modal.wide{max-width:900px;}
+  .modal.slim{max-width:460px;}
+  .mhead{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+  .mhead h3{font-size:16px;font-weight:700;}
+  .mhead .x{cursor:pointer;color:var(--slate);font-size:22px;line-height:1;}
+  .mbody{padding:20px;}
+  .mfoot{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:9px;}
+
+  /* toast */
+  .toasts{position:fixed;right:20px;bottom:20px;display:flex;flex-direction:column;gap:9px;z-index:80;}
+  .toast{background:#0f3d4c;color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);display:flex;align-items:center;gap:9px;animation:slidein .2s ease;}
+  .toast.ok{background:#1F8A4C;}
+  .toast.warn{background:var(--low);}
+  @keyframes slidein{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+  /* wizard */
+  .wsteps{display:flex;align-items:center;gap:9px;margin-bottom:20px;font-size:12.5px;flex-wrap:wrap;}
+  .wsteps .s{display:flex;align-items:center;gap:8px;color:var(--slate);}
+  .wsteps .s .n{width:24px;height:24px;border-radius:50%;background:#E4E8EC;color:var(--slate);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
+  .wsteps .s.on{color:var(--ink);font-weight:600;}
+  .wsteps .s.on .n{background:var(--teal);color:#fff;}
+  .wsteps .s.done .n{background:var(--instock);color:#fff;}
+  .wsteps .ln{width:34px;height:2px;background:var(--border);}
+  .wstep{display:none;} .wstep.on{display:block;}
+  .drop{border:1.5px dashed #C7D0D7;border-radius:12px;padding:34px;text-align:center;color:var(--slate);background:#fff;}
+  .drop svg{opacity:.5;margin-bottom:10px;}
+  .vendorbox{background:#F1F7FB;border:1px solid #CFE0EC;border-radius:10px;padding:14px 16px;font-size:12.5px;line-height:1.7;}
+  .filechip{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:14px;}
+  .filechip .fi{width:36px;height:36px;border-radius:8px;background:#E4F3EA;display:flex;align-items:center;justify-content:center;}
+
+  .flag{font-size:10.5px;color:var(--red);font-weight:600;}
+  .twocol{display:grid;grid-template-columns:1.3fr .8fr;gap:16px;align-items:start;}
+  @media(max-width:900px){.stats,.summ{grid-template-columns:repeat(2,1fr)}.grid2,.twocol,.fgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="side">
+    <div class="brand"><div class="m"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-5 9 5v9a1 1 0 01-1 1h-4v-6H8v6H4a1 1 0 01-1-1V9z" stroke="#3a2400" stroke-width="1.8" stroke-linejoin="round"/></svg></div><div class="t">Stockroom</div></div>
+    <nav class="nav" id="nav">
+      <div class="lnk on" data-page="dashboard"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke-width="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke-width="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke-width="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke-width="1.6"/></svg>Dashboard</div>
+
+      <div class="lnk grp" data-group="catalog"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 8l8-4 8 4-8 4z" stroke-width="1.6" stroke-linejoin="round"/><path d="M4 8v8l8 4 8-4V8" stroke-width="1.6" stroke-linejoin="round"/></svg>Catalog<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+      <div class="sub" id="sub-catalog">
+        <div class="lnk" data-page="catalog">All Items</div>
+        <div class="lnk" data-page="additem">Add New Item</div>
+        <div class="lnk" data-page="inventory">Inventory / Stock</div>
+        <div class="lnk" data-page="quickcomplete">Imported Items</div>
+      </div>
+
+      <div class="lnk grp" data-group="purchasing"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="1" y="6" width="13" height="10" rx="1.5" stroke-width="1.6"/><path d="M14 9h4l3 3v4h-7z" stroke-width="1.6" stroke-linejoin="round"/><circle cx="6" cy="18" r="1.8" stroke-width="1.6"/><circle cx="17" cy="18" r="1.8" stroke-width="1.6"/></svg>Purchasing<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+      <div class="sub" id="sub-purchasing">
+        <div class="lnk" data-page="pos">Purchase Orders</div>
+        <div class="lnk" data-page="createpo">Create Purchase Order</div>
+        <div class="lnk" data-page="importpo">Import PO From Excel</div>
+        <div class="lnk" data-page="vendors">Vendors</div>
+      </div>
+
+      <div class="lnk grp" data-group="sales"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 7h14l-1 13H6z" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 7a3 3 0 016 0" stroke-width="1.6"/></svg>Sales<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+      <div class="sub" id="sub-sales">
+        <div class="lnk" data-page="customers">Customers</div>
+        <div class="lnk" data-page="orders">Orders</div>
+        <div class="lnk" data-page="invoices">Invoices</div>
+      </div>
+
+      <div class="lnk grp" data-group="settings"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke-width="1.6"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2" stroke-width="1.6" stroke-linecap="round"/></svg>Settings<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+      <div class="sub" id="sub-settings">
+        <div class="lnk" data-page="users">Users</div>
+        <div class="lnk" data-page="company">Company Details</div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+    <div class="topbar"><div class="ttl" id="topttl">Dashboard</div><div class="rt"><div class="who"><div class="ava">AM</div><div><div class="nm">Amir M.</div><div class="rl">Owner</div></div></div></div></div>
+    <div class="content" id="content"><!-- pages injected --></div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay"><div id="modalhost"></div></div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+/* ============================================================ DATA */
+const money = n => '$' + Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const marginPct = (price,cost) => price>0 ? (((price-cost)/price)*100) : 0;
+const mpFmt = m => (isFinite(m)? m.toFixed(1)+'%' : '—');
+
+let ITEMS = [
+  {upc:'0 12000 00934 1',name:'Cola 330ml Can',dept:'Beverages',size:'Case of 24',qty:180,cost:11.90,price:14.40,vcode:'GB-COLA-24',vid:'V-1001',last:'2026-09-06',hotDeal:true,rail:'Top Deals',wasPrice:16.90,status:'Active'},
+  {upc:'0 12000 55120 8',name:'Spring Water 500ml',dept:'Beverages',size:'Case of 24',qty:48,cost:6.00,price:7.20,vcode:'GB-SPR-24',vid:'V-1001',last:'2026-09-06',hotDeal:true,rail:'Top Deals',wasPrice:9.60,status:'Active'},
+  {upc:'0 49000 02891 7',name:'Sparkling Water 330ml',dept:'Beverages',size:'Case of 24',qty:7,cost:8.40,price:10.80,vcode:'GB-SPK-24',vid:'V-1001',last:'2026-08-28',status:'Active'},
+  {upc:'0 38000 11810 2',name:'Roasted Coffee 1kg',dept:'Grocery',size:'Pack of 6',qty:64,cost:33.00,price:42.00,vcode:'BB-COF-6',vid:'V-1002',last:'2026-09-01',status:'Active'},
+  {upc:'0 30000 05610 9',name:'Nitrile Gloves M',dept:'Health & Safety',size:'Box of 100',qty:9,cost:6.10,price:8.90,vcode:'SS-GLV-M',vid:'V-1003',last:'2026-08-20',status:'Low Stock'},
+  {upc:'2 00417 00006 3',name:'Paper Towels 2ply',dept:'Paper & Disposables',size:'Pack of 12',qty:120,cost:9.20,price:13.50,vcode:'PP-TWL-12',vid:'V-1004',last:'2026-09-03',status:'Active'},
+  {upc:'0 21000 61240 5',name:'Sugar 2kg',dept:'Grocery',size:'Each',qty:6,cost:2.10,price:3.40,vcode:'BB-SUG-2',vid:'V-1002',last:'2026-08-15',status:'Low Stock'},
+  {upc:'0 89011 20043 6',name:'Oat Milk 1L',dept:'Dairy',size:'Case of 12',qty:52,cost:16.80,price:21.60,vcode:'GV-OAT-12',vid:'V-1005',last:'2026-09-04',status:'Active'},
+  {upc:'0 41000 12345 0',name:'Paper Cups 12oz',dept:'Paper & Disposables',size:'Pack of 50',qty:200,cost:4.10,price:6.40,vcode:'PP-CUP-50',vid:'V-1004',last:'2026-09-02',status:'Active'},
+  {upc:'—',name:'Coconut Water 1L (draft)',dept:'Beverages',size:'Case of 12',qty:0,cost:22.00,price:0,vcode:'GB-COCO-12',vid:'V-1001',last:'—',status:'Draft'},
+];
+
+let VENDORS = [
+  {name:'Global Beverages Ltd',id:'V-1001',code:'GLOBEV',contact:'Sara Cohen',phone:'+1 713 555 0142',email:'orders@globalbev.com',terms:'Net 30',active:true,last:'2026-09-06'},
+  {name:'Bean Bros Roasters',id:'V-1002',code:'BEANBR',contact:'Marcus Lee',phone:'+1 713 555 0199',email:'sales@beanbros.com',terms:'Net 15',active:true,last:'2026-09-01'},
+  {name:'SafeSupply Co',id:'V-1003',code:'SAFESP',contact:'Dana White',phone:'+1 281 555 0110',email:'ap@safesupply.com',terms:'Net 45',active:true,last:'2026-08-20'},
+  {name:'PaperPlus Distribution',id:'V-1004',code:'PPLUS',contact:'Ken Park',phone:'+1 832 555 0177',email:'hello@paperplus.com',terms:'Net 30',active:true,last:'2026-09-03'},
+  {name:'Green Valley Foods',id:'V-1005',code:'GRNVLY',contact:'Omar A.',phone:'+1 713 555 0166',email:'wholesale@greenvalley.com',terms:'Net 30',active:false,last:'2026-09-04'},
+];
+
+let POS = [
+  {no:'PO-1042',vendor:'Global Beverages Ltd',vendorId:'V-1001',date:'2026-09-06',exp:'2026-09-12',by:'Amir M.',terms:'Net 30',status:'Partially Received',pay:'Unpaid',edi:'Sent',
+   lines:[{upc:'0 12000 00934 1',name:'Cola 330ml Can',size:'Case of 24',qtyOrd:40,qtyRec:40,cost:11.90},{upc:'0 12000 55120 8',name:'Spring Water 500ml',size:'Case of 24',qtyOrd:60,qtyRec:20,cost:5.90}],
+   receipts:[{grn:'GRN-4402',date:'2026-09-10',lines:[{name:'Cola 330ml Can',qty:40},{name:'Spring Water 500ml',qty:20}]}]},
+  {no:'PO-1041',vendor:'Bean Bros Roasters',vendorId:'V-1002',date:'2026-09-01',exp:'2026-09-05',by:'Amir M.',terms:'Net 15',status:'Received',pay:'Unpaid',edi:'Delivered',
+   lines:[{upc:'0 38000 11810 2',name:'Roasted Coffee 1kg',size:'Pack of 6',qtyOrd:8,qtyRec:8,cost:33.00}],
+   receipts:[{grn:'GRN-4390',date:'2026-09-05',lines:[{name:'Roasted Coffee 1kg',qty:8}]}]},
+  {no:'PO-1040',vendor:'PaperPlus Distribution',vendorId:'V-1004',date:'2026-08-30',exp:'2026-09-02',by:'Nadia H.',terms:'Net 30',status:'Received',pay:'Paid',edi:'Delivered',
+   lines:[{upc:'2 00417 00006 3',name:'Paper Towels 2ply',size:'Case of 12',qtyOrd:15,qtyRec:15,cost:9.20}],
+   receipts:[{grn:'GRN-4381',date:'2026-09-02',lines:[{name:'Paper Towels 2ply',qty:15}]}]},
+  {no:'PO-1039',vendor:'SafeSupply Co',vendorId:'V-1003',date:'2026-08-20',exp:'2026-08-27',by:'Amir M.',terms:'Net 45',status:'Pending',pay:'Unpaid',edi:'Not Sent',
+   lines:[{upc:'0 55577 31009 2',name:'Nitrile Gloves M',size:'Box of 100',qtyOrd:6,qtyRec:0,cost:6.10}],
+   receipts:[]},
+  {no:'PO-1038',vendor:'Green Valley Foods',vendorId:'V-1005',date:'2026-08-18',exp:'2026-08-22',by:'Nadia H.',terms:'Net 30',status:'Cancelled',pay:'Unpaid',edi:'Not Sent',
+   lines:[{upc:'0 21000 61240 5',name:'Sugar 2kg',size:'Pack of 10',qtyOrd:10,qtyRec:0,cost:2.40}],
+   receipts:[]},
+];
+
+let PROMOS = [
+  {name:'September Cola Deal',type:'Promotional price',discount:'$11.90 (was $14.40)',applies:'Cola 330ml Can',start:'2026-09-01',end:'2026-09-30',status:'Active'},
+  {name:'Water 25% Off',type:'Percentage off',discount:'25%',applies:'Dept: Beverages',start:'2026-09-01',end:'2026-09-15',status:'Active'},
+  {name:'Buy 5 Get 1 Coffee',type:'Buy X Get Y',discount:'Buy 5 get 1 free',applies:'Roasted Coffee 1kg',start:'2026-09-10',end:'2026-09-24',status:'Scheduled'},
+  {name:'Cleaning Bundle',type:'Bundle / multi-buy',discount:'3 for $30',applies:'Dept: Cleaning',start:'2026-08-01',end:'2026-08-31',status:'Ended'},
+];
+
+let ADJ = [
+  {id:'ADJ-2051',date:'2026-09-08',item:'Nitrile Gloves M',upc:'0 30000 05610 9',prev:14,adj:-5,neww:9,reason:'Damaged',by:'Nadia H.'},
+  {id:'ADJ-2050',date:'2026-09-07',item:'Cola 330ml Can',upc:'0 12000 00934 1',prev:140,adj:40,neww:180,reason:'PO-1042 receipt',by:'Amir M.'},
+  {id:'ADJ-2049',date:'2026-09-06',item:'Sugar 2kg',upc:'0 21000 61240 5',prev:10,adj:-4,neww:6,reason:'Cycle count correction',by:'Nadia H.'},
+  {id:'ADJ-2048',date:'2026-09-05',item:'Oat Milk 1L',upc:'0 89011 20043 6',prev:40,adj:12,neww:52,reason:'Return to vendor reversed',by:'Amir M.'},
+];
+
+let IMPORTED = [
+  {batch:'IMP-338',upc:'0 89011 20043 6',name:'Yerba Mate 330ml',matched:'—',dept:'Beverages',cost:14.10,price:0,vendor:'Global Beverages Ltd',missing:['Price','Department confirm'],status:'Needs Review'},
+  {batch:'IMP-338',upc:'—',name:'Coconut Water 1L',matched:'—',dept:'Beverages',cost:22.00,price:0,vendor:'Global Beverages Ltd',missing:['UPC','Price'],status:'Needs Review'},
+  {batch:'IMP-338',upc:'0 41000 99881 2',name:'Iced Tea 500ml',matched:'—',dept:'Beverages',cost:9.40,price:12.50,vendor:'Global Beverages Ltd',missing:[],status:'Ready to Publish'},
+  {batch:'IMP-338',upc:'0 12000 55120 8',name:'Spring Water 500ml',matched:'Spring Water 500ml',dept:'Beverages',cost:6.00,price:7.20,vendor:'Global Beverages Ltd',missing:['Possible duplicate'],status:'Needs Review'},
+];
+
+let ORDERS = [
+  {no:'SO-1043',custId:'C-2001',cust:"Mario's Café",poRef:'MC-8841',date:'2026-09-11',reqDate:'2026-09-13',rep:'Nadia H.',status:'Submitted',fstatus:'Unfulfilled',istatus:'Not Invoiced',pay:'Unpaid',orderDisc:0,shipping:0,notesInt:'',notesCust:'',
+   lines:[{upc:'0 12000 00934 1',sku:'BEV-COLA-330',name:'Cola 330ml Can',dept:'Beverages',qtyOrd:2,qtyFul:0,qtyInv:0,qtyBack:0,avail:180,price:11.90,disc:0,tax:0},{upc:'0 38000 11810 2',sku:'GRO-COF-1K',name:'Roasted Coffee 1kg',dept:'Grocery',qtyOrd:1,qtyFul:0,qtyInv:0,qtyBack:0,avail:64,price:42.00,disc:0,tax:0},{upc:'0 12000 55120 8',sku:'BEV-SPR-500',name:'Spring Water 500ml',dept:'Beverages',qtyOrd:3,qtyFul:0,qtyInv:0,qtyBack:0,avail:48,price:7.20,disc:0,tax:0}],
+   fulfillments:[],timeline:[{when:'2026-09-11 09:12',who:'Customer app',text:'Order submitted from the app.'}]},
+  {no:'SO-1042',custId:'C-2002',cust:'Corner Deli',poRef:'CD-2201',date:'2026-09-11',reqDate:'2026-09-12',rep:'Nadia H.',status:'Confirmed',fstatus:'Partially Fulfilled',istatus:'Partially Invoiced',pay:'Partially Paid',orderDisc:0,shipping:15,notesInt:'Regular account — priority run.',notesCust:'',
+   lines:[{upc:'0 89011 20043 6',sku:'DAI-OAT-1L',name:'Oat Milk 1L',dept:'Dairy',qtyOrd:6,qtyFul:6,qtyInv:6,qtyBack:0,avail:52,price:21.60,disc:0,tax:0},{upc:'0 41000 44551 9',sku:'BEV-OJ-1L',name:'Orange Juice 1L',dept:'Beverages',qtyOrd:24,qtyFul:18,qtyInv:18,qtyBack:6,avail:4,price:18.20,disc:0,tax:0}],
+   fulfillments:[{fno:'FUL-3301',date:'2026-09-11',wh:'Main Warehouse',method:'Delivery',tracking:'',lines:[{name:'Oat Milk 1L',qty:6},{name:'Orange Juice 1L',qty:18}]}],
+   timeline:[{when:'2026-09-11 08:40',who:'Customer app',text:'Order submitted.'},{when:'2026-09-11 09:05',who:'Nadia H.',text:'Order confirmed.'},{when:'2026-09-11 10:20',who:'Warehouse',text:'FUL-3301: fulfilled 6 Oat Milk, 18 Orange Juice. 6 Orange Juice moved to backorder (insufficient stock).'},{when:'2026-09-11 10:25',who:'Nadia H.',text:'Invoice INV-5009 created for the fulfilled quantities.'}]},
+  {no:'SO-1041',custId:'C-2003',cust:'Blue Mart',poRef:'BM-770',date:'2026-09-10',reqDate:'2026-09-10',rep:'Amir M.',status:'Closed',fstatus:'Fulfilled',istatus:'Fully Invoiced',pay:'Paid',orderDisc:0,shipping:0,notesInt:'',notesCust:'',
+   lines:[{upc:'2 00417 00006 3',sku:'PAP-TWL-12',name:'Paper Towels 2ply',dept:'Paper & Disposables',qtyOrd:4,qtyFul:4,qtyInv:4,qtyBack:0,avail:120,price:13.50,disc:0,tax:0}],
+   fulfillments:[{fno:'FUL-3290',date:'2026-09-10',wh:'Main Warehouse',method:'Delivery',tracking:'',lines:[{name:'Paper Towels 2ply',qty:4}]}],
+   timeline:[{when:'2026-09-10',who:'Customer app',text:'Order submitted.'},{when:'2026-09-10',who:'Amir M.',text:'Fulfilled and invoiced (INV-5008). Payment received.'}]},
+  {no:'SO-1040',custId:'C-2004',cust:'Harbour Grocery',poRef:'',date:'2026-09-10',reqDate:'2026-09-14',rep:'Amir M.',status:'On Hold',fstatus:'Unfulfilled',istatus:'Not Invoiced',pay:'Unpaid',orderDisc:0,shipping:0,notesInt:'Account over credit limit — do not fulfil until cleared.',notesCust:'',
+   lines:[{upc:'0 21000 61240 5',sku:'GRO-SUG-2K',name:'Sugar 2kg',dept:'Grocery',qtyOrd:20,qtyFul:0,qtyInv:0,qtyBack:0,avail:6,price:3.40,disc:0,tax:0}],
+   fulfillments:[],timeline:[{when:'2026-09-10',who:'Customer app',text:'Order submitted.'},{when:'2026-09-10',who:'System',text:'Order placed On Hold — customer over credit limit.'}]},
+];
+
+let INVOICES = [
+  {no:'INV-5009',order:'SO-1042',custId:'C-2002',cust:'Corner Deli',poRef:'CD-2201',date:'2026-09-11',due:'2026-10-11',terms:'Net 30',istatus:'Sent',pay:'Partially Paid',edi:'Sent',shipping:15,payments:150.00,credit:0,
+   lines:[{upc:'0 89011 20043 6',name:'Oat Milk 1L',qty:6,price:21.60,disc:0,tax:10.37,fulRef:'FUL-3301'},{upc:'0 41000 44551 9',name:'Orange Juice 1L',qty:18,price:18.20,disc:0,tax:26.21,fulRef:'FUL-3301'}]},
+  {no:'INV-5008',order:'SO-1041',custId:'C-2003',cust:'Blue Mart',poRef:'BM-770',date:'2026-09-10',due:'2026-10-10',terms:'Net 30',istatus:'Paid',pay:'Paid',edi:'Delivered',shipping:0,payments:58.32,credit:0,
+   lines:[{upc:'2 00417 00006 3',name:'Paper Towels 2ply',qty:4,price:13.50,disc:0,tax:4.32,fulRef:'FUL-3290'}]},
+];
+
+let CUSTOMERS = [
+  {id:'C-2001',acct:'ACC-10231',name:"Mario's Café",contact:'Mario Rossi',phone:'+1 713 555 0110',email:'mario@mariocafe.com',type:'Restaurant',terms:'Net 30',credit:'Good',status:'Active',balance:87.40,creditLimit:5000,taxExempt:false,rep:'Nadia H.',last:'2026-09-11',bill:'142 Harbour Road, Unit 5\nHouston, TX 77002',ship:'142 Harbour Road, Unit 5\nHouston, TX 77002',notes:'Prefers morning delivery before 10am.'},
+  {id:'C-2002',acct:'ACC-10244',name:'Corner Deli',contact:'Elena Petrova',phone:'+1 713 555 0188',email:'orders@cornerdeli.com',type:'Grocery',terms:'Net 30',credit:'Good',status:'Active',balance:568.10,creditLimit:8000,taxExempt:false,rep:'Nadia H.',last:'2026-09-11',bill:'88 Almeda St\nHouston, TX 77004',ship:'88 Almeda St (rear dock)\nHouston, TX 77004',notes:''},
+  {id:'C-2003',acct:'ACC-10190',name:'Blue Mart',contact:'Kwame Osei',phone:'+1 281 555 0143',email:'ap@bluemart.com',type:'Retail',terms:'Net 30',credit:'Good',status:'Active',balance:0,creditLimit:6000,taxExempt:false,rep:'Amir M.',last:'2026-09-10',bill:'2201 Westheimer Rd\nHouston, TX 77098',ship:'2201 Westheimer Rd\nHouston, TX 77098',notes:''},
+  {id:'C-2004',acct:'ACC-10302',name:'Harbour Grocery',contact:'Lucia Fernandez',phone:'+1 832 555 0122',email:'lucia@harbourgrocery.com',type:'Grocery',terms:'Net 15',credit:'Hold',status:'On Hold',balance:6120.00,creditLimit:6000,taxExempt:false,rep:'Amir M.',last:'2026-09-10',bill:'14 Dockside Ave\nHouston, TX 77003',ship:'14 Dockside Ave\nHouston, TX 77003',notes:'Over credit limit. Collections following up.'},
+  {id:'C-2005',acct:'ACC-10355',name:'Sunrise Grocers',contact:'Priya N.',phone:'+1 713 555 0166',email:'priya@sunrisegrocers.com',type:'Wholesale',terms:'Net 30',credit:'N/A',status:'Pending Approval',balance:0,creditLimit:0,taxExempt:true,rep:'—',last:'—',bill:'5 Market Sq\nHouston, TX 77001',ship:'5 Market Sq\nHouston, TX 77001',notes:'New signup — awaiting approval.'},
+  {id:'C-2006',acct:'ACC-10088',name:'Old Town Diner',contact:'Ray Boyd',phone:'+1 713 555 0101',email:'ray@oldtowndiner.com',type:'Restaurant',terms:'Net 30',credit:'Watch',status:'Inactive',balance:0,creditLimit:3000,taxExempt:false,rep:'Nadia H.',last:'2026-04-02',bill:'700 Main St\nHouston, TX 77002',ship:'700 Main St\nHouston, TX 77002',notes:'Dormant since April.'},
+];
+
+let USERS = [
+  {first:'Amir',last:'M.',email:'amir@stockroom.co',phone:'+1 713 555 0001',role:'Owner',dept:'Management',loc:'Main Warehouse',lastLogin:'2026-09-11 08:02',status:'Active',created:'2025-01-04'},
+  {first:'Nadia',last:'H.',email:'nadia@stockroom.co',phone:'+1 713 555 0002',role:'Sales Manager',dept:'Sales',loc:'Main Warehouse',lastLogin:'2026-09-11 07:40',status:'Active',created:'2025-02-11'},
+  {first:'Leo',last:'C.',email:'leo@stockroom.co',phone:'+1 713 555 0003',role:'Sales Representative',dept:'Sales',loc:'Main Warehouse',lastLogin:'2026-09-10 16:22',status:'Active',created:'2025-06-01'},
+  {first:'Dana',last:'W.',email:'dana@stockroom.co',phone:'+1 713 555 0004',role:'Purchasing Manager',dept:'Purchasing',loc:'Main Warehouse',lastLogin:'2026-09-11 06:55',status:'Active',created:'2025-03-19'},
+  {first:'Sam',last:'T.',email:'sam@stockroom.co',phone:'+1 713 555 0005',role:'Inventory Manager',dept:'Warehouse',loc:'Main Warehouse',lastLogin:'2026-09-09 18:10',status:'Active',created:'2025-04-22'},
+  {first:'Rosa',last:'K.',email:'rosa@stockroom.co',phone:'+1 713 555 0006',role:'Accounting',dept:'Finance',loc:'—',lastLogin:'2026-09-08 09:14',status:'Active',created:'2025-05-30'},
+  {first:'Chris',last:'B.',email:'chris@stockroom.co',phone:'+1 713 555 0007',role:'Warehouse Staff',dept:'Warehouse',loc:'Main Warehouse',lastLogin:'2026-08-30 12:00',status:'Inactive',created:'2025-07-15'},
+];
+const ROLES=['Owner','Administrator','Sales Manager','Sales Representative','Purchasing Manager','Inventory Manager','Warehouse Staff','Accounting','Read Only'];
+const ROLEPERMS={'Owner':'Full access to every module and settings.','Administrator':'Full access except billing ownership transfer.','Sales Manager':'Customers, orders, invoices, promotions; view reports.','Sales Representative':'Create/edit own orders and customers; no settings.','Purchasing Manager':'Vendors, purchase orders, imports, inventory.','Inventory Manager':'Catalog, inventory, stock adjustments.','Warehouse Staff':'Fulfilment and stock adjustments only.','Accounting':'Invoices, payments, reports; read-only catalog.','Read Only':'View-only across permitted modules.'};
+
+let COMPANY = {legal:'Stockroom Wholesale LLC',dba:'Stockroom',email:'hello@stockroom.co',phone:'+1 713 555 0100',website:'www.stockroom.co',ein:'47-1029384',bill:'100 Distribution Way\nHouston, TX 77002',ship:'100 Distribution Way, Dock A\nHouston, TX 77002',currency:'USD ($)',tax:'8.25% (TX)',invTerms:'Net 30',poTerms:'Net 30',invPrefix:'INV-',poPrefix:'PO-',tz:'America/Chicago (CT)'};
+
+const DEPTS=['Beverages','Snacks','Confectionery','Dairy','Frozen','Grocery','Cleaning','Paper & Disposables','Health & Safety'];
+
+/* ============================================================ HELPERS */
+const $ = s => document.querySelector(s);
+const host = () => $('#content');
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function toast(msg,type){const t=document.createElement('div');t.className='toast '+(type||'');t.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'+esc(msg);$('#toasts').appendChild(t);setTimeout(()=>t.remove(),3200);}
+function openModal(html,wide){$('#modalhost').innerHTML='<div class="modal '+(wide||'')+'">'+html+'</div>';$('#overlay').classList.add('on');}
+function closeModal(){$('#overlay').classList.remove('on');$('#modalhost').innerHTML='';}
+$('#overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeModal();});
+
+function statusPill(s){
+  const map={'Active':'p-active','Inactive':'p-inactive','Draft':'p-draft','Low Stock':'p-low','Pending':'p-pending','Received':'p-received','Partially Received':'p-partial','Paid':'p-paid','Cancelled':'p-cancelled','Placed':'p-placed','Preparing':'p-prep','Shipped':'p-ship','Scheduled':'p-draft','Ended':'p-inactive','Needs Review':'p-review','Ready to Publish':'p-ready',
+  'Submitted':'p-info','Confirmed':'p-info','On Hold':'p-low','Closed':'p-active',
+  'Unfulfilled':'p-inactive','Partially Fulfilled':'p-partial','Fulfilled':'p-active','Backordered':'p-danger','Ready for Pickup':'p-info','Delivered':'p-active',
+  'Not Invoiced':'p-inactive','Partially Invoiced':'p-partial','Fully Invoiced':'p-active','Open':'p-info','Sent':'p-info','Partially Paid':'p-partial','Overdue':'p-danger','Void':'p-cancelled','Credited':'p-cancelled',
+  'Unpaid':'p-unpaid','Refunded':'p-cancelled','Settled':'p-ship',
+  'Not Sent':'p-inactive','Queued':'p-low','Failed':'p-danger',
+  'Pending Approval':'p-pending','Good':'p-active','Watch':'p-low','Hold':'p-danger','N/A':'p-inactive'};
+  return '<span class="pill '+(map[s]||'p-inactive')+'">'+esc(s)+'</span>';
+}
+function payPill(s){return '<span class="pill '+(s==='Settled'||s==='Paid'?'p-ship':'p-unpaid')+'">'+esc(s)+'</span>';}
+
+/* ============================================================ ROUTER */
+const TITLES={dashboard:'Dashboard',catalog:'Catalog',additem:'Add New Item',promotions:'Promotions',inventory:'Inventory / Stock Adjustments',quickcomplete:'Imported Items / Quick Complete',pos:'Purchase Orders',createpo:'Create Purchase Order',importpo:'Import PO From Excel',vendors:'Vendors',customers:'Customers',orders:'Orders',invoices:'Invoices',users:'Users',company:'Company Details'};
+function nav(page){
+  document.querySelectorAll('#nav .lnk').forEach(l=>l.classList.toggle('on',l.dataset.page===page));
+  // open the parent submenu
+  const inCatalog=['catalog','additem','promotions','inventory','quickcomplete'].includes(page);
+  const inPurch=['pos','createpo','importpo','vendors'].includes(page);
+  const inSales=['customers','orders','invoices'].includes(page);
+  const inSettings=['users','company'].includes(page);
+  toggleSub('catalog',inCatalog); toggleSub('purchasing',inPurch); toggleSub('sales',inSales); toggleSub('settings',inSettings);
+  $('#topttl').textContent=TITLES[page]||'';
+  RENDER[page]();
+  window.scrollTo(0,0);
+}
+function toggleSub(g,open){
+  const sub=$('#sub-'+g), grp=document.querySelector('[data-group="'+g+'"]');
+  if(open){sub.classList.add('open');grp.classList.add('open','on');}
+  else {sub.classList.remove('open');grp.classList.remove('on');grp.classList.remove('open');}
+}
+document.querySelectorAll('#nav .lnk').forEach(l=>{
+  l.addEventListener('click',()=>{
+    if(l.dataset.group){const s=$('#sub-'+l.dataset.group);const isOpen=s.classList.contains('open');s.classList.toggle('open',!isOpen);l.classList.toggle('open',!isOpen);return;}
+    if(l.dataset.page)nav(l.dataset.page);
+  });
+});
+
+/* ============================================================ PAGES */
+const RENDER={};
+
+/* ---- DASHBOARD ---- */
+let dashCharts=[];
+const DASH={
+  salesWeeks:['Jul W1','Jul W2','Jul W3','Jul W4','Aug W1','Aug W2','Aug W3','Aug W4','Sep W1','Sep W2'],
+  salesRev:[28100,31200,29400,34800,37600,35900,41200,44700,46300,48200],
+  fastItems:['Cola 330ml','Spring Water','Oat Milk','Paper Towels','Roasted Coffee','Paper Cups'],
+  fastUnits:[420,360,240,180,150,132],
+  deptLabels:['Beverages','Grocery','Paper & Disp.','Dairy','Health & Safety','Other'],
+  deptShare:[42,22,14,10,7,5],
+};
+RENDER.dashboard=()=>{
+  dashCharts.forEach(c=>{try{c.destroy();}catch(e){}});dashCharts=[];
+  const low=ITEMS.filter(i=>i.status==='Low Stock').length;
+  const out=ITEMS.filter(i=>i.qty===0).length;
+  const inStock=ITEMS.filter(i=>i.qty>0&&i.status!=='Low Stock'&&i.status!=='Draft').length;
+  host().innerHTML=`
+  <div class="stats">
+    <div class="stat"><div class="k">Sales (month to date)</div><div class="v">$48.2k</div><div class="delta up">▲ 12.4% vs last month</div></div>
+    <div class="stat"><div class="k">Gross margin</div><div class="v">21.4%</div><div class="delta up">▲ 0.8 pt</div></div>
+    <div class="stat"><div class="k">Inventory turnover</div><div class="v">6.2×</div><div class="delta up">▲ 0.3× (annualized)</div></div>
+    <div class="stat"><div class="k">Order fill rate</div><div class="v">96.3%</div><div class="delta down">▼ 1.1 pt</div></div>
+  </div>
+
+  <div class="chartgrid">
+    <div class="chcard"><div class="ct">Warehouse sales</div><div class="cs">Weekly revenue — last 10 weeks</div><div class="chwrap"><canvas id="ch_sales"></canvas></div></div>
+    <div class="chcard"><div class="ct">Sales by department</div><div class="cs">Share of revenue, this month</div><div class="chwrap"><canvas id="ch_dept"></canvas></div></div>
+  </div>
+  <div class="chartgrid">
+    <div class="chcard"><div class="ct">Fast-moving items</div><div class="cs">Units sold this month — top 6</div><div class="chwrap"><canvas id="ch_fast"></canvas></div></div>
+    <div class="chcard"><div class="ct">Stock health</div><div class="cs">Items by availability</div><div class="chwrap"><canvas id="ch_stock"></canvas></div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><div class="ch">Recent orders <span class="btn link" onclick="nav('orders')">View all</span></div>
+      <table class="tbl"><tr><th>Order</th><th>Customer</th><th class="num">Total</th><th>Status</th></tr>
+      ${ORDERS.map(o=>`<tr><td><b>${o.no}</b></td><td>${esc(o.cust)}</td><td class="num">${money(orderTotals(o).total)}</td><td>${statusPill(o.status)}</td></tr>`).join('')}
+      </table></div>
+    <div class="card"><div class="ch">Low stock — reorder soon <span class="btn link" onclick="nav('inventory')">Adjust</span></div>
+      <table class="tbl"><tr><th>Item</th><th>Dept</th><th class="num">On hand</th></tr>
+      ${ITEMS.filter(i=>i.status==='Low Stock').map(i=>`<tr class="rowlow"><td><b>${esc(i.name)}</b></td><td class="sub">${esc(i.dept)}</td><td class="num neg">${i.qty}</td></tr>`).join('')}
+      </table></div>
+  </div>`;
+
+  if(!window.Chart){document.querySelectorAll('.chwrap').forEach(w=>w.innerHTML='<div style="color:var(--slate);font-size:12px;padding:20px;text-align:center">Charts need an internet connection to load.</div>');return;}
+  Chart.defaults.font.family="'IBM Plex Sans',sans-serif";
+  Chart.defaults.color='#64707D';
+  const teal='#124559',amber='#E8890C',green='#1F8A4C',slate='#98A2AF';
+  const dollar=v=>'$'+(v/1000).toFixed(0)+'k';
+
+  dashCharts.push(new Chart($('#ch_sales'),{type:'line',data:{labels:DASH.salesWeeks,datasets:[{data:DASH.salesRev,borderColor:teal,backgroundColor:'rgba(18,69,89,.08)',borderWidth:2.5,fill:true,tension:.35,pointRadius:3,pointBackgroundColor:teal}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+c.parsed.y.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0})}}},scales:{y:{ticks:{callback:dollar},grid:{color:'#EFF2F4'}},x:{grid:{display:false}}}}}));
+
+  dashCharts.push(new Chart($('#ch_dept'),{type:'doughnut',data:{labels:DASH.deptLabels,datasets:[{data:DASH.deptShare,backgroundColor:[teal,'#2E7D8F',amber,green,'#64707D','#C4CBD2'],borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'right',labels:{boxWidth:10,font:{size:11},padding:9}},tooltip:{callbacks:{label:c=>' '+c.label+': '+c.parsed+'%'}}}}}));
+
+  dashCharts.push(new Chart($('#ch_fast'),{type:'bar',data:{labels:DASH.fastItems,datasets:[{data:DASH.fastUnits,backgroundColor:teal,borderRadius:5,barThickness:18}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+c.parsed.x+' units'}}},scales:{x:{grid:{color:'#EFF2F4'},ticks:{precision:0}},y:{grid:{display:false}}}}}));
+
+  dashCharts.push(new Chart($('#ch_stock'),{type:'doughnut',data:{labels:['In stock','Low','Out'],datasets:[{data:[inStock,low,out],backgroundColor:[green,amber,slate],borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'right',labels:{boxWidth:10,font:{size:11},padding:9}},tooltip:{callbacks:{label:c=>' '+c.label+': '+c.parsed+' items'}}}}}));
+};
+
+/* ---- CATALOG ---- */
+let catFilters={q:'',dept:'',vendor:'',status:'',low:false,page:1};
+RENDER.catalog=()=>{
+  host().innerHTML=`
+  <div class="phead"><div><h1>Catalog</h1><div class="sub">Manage products, pricing, inventory, and supplier information</div></div>
+    <div class="acts"><button class="btn ghost sm" onclick="nav('importpo')">Import Items</button><button class="btn ghost sm" onclick="exportCSV('catalog')">Export to Excel</button><button class="btn teal" onclick="nav('additem')">+ Add New Item</button></div>
+  </div>
+  <div class="toolbar">
+    <div class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#64707D" stroke-width="1.8"/><path d="M20 20l-3.5-3.5" stroke="#64707D" stroke-width="1.8" stroke-linecap="round"/></svg><input id="catq" placeholder="Search name or UPC" value="${catFilters.q}"></div>
+    <select class="sel" id="catdept"><option value="">All departments</option>${DEPTS.map(d=>`<option ${catFilters.dept===d?'selected':''}>${d}</option>`).join('')}</select>
+    <select class="sel" id="catvendor"><option value="">All vendors</option>${VENDORS.map(v=>`<option value="${v.id}" ${catFilters.vendor===v.id?'selected':''}>${esc(v.name)}</option>`).join('')}</select>
+    <select class="sel" id="catstatus"><option value="">Any status</option><option ${catFilters.status==='Active'?'selected':''}>Active</option><option ${catFilters.status==='Inactive'?'selected':''}>Inactive</option><option ${catFilters.status==='Draft'?'selected':''}>Draft</option><option ${catFilters.status==='Low Stock'?'selected':''}>Low Stock</option></select>
+    <label class="switch"><input type="checkbox" id="catlow" ${catFilters.low?'checked':''}> Low stock only</label>
+  </div>
+  <div class="card"><div style="overflow-x:auto"><table class="tbl" id="cattbl"></table></div><div id="catpager"></div></div>`;
+  ['catq','catdept','catvendor','catstatus','catlow'].forEach(id=>{const e=$('#'+id);e.addEventListener('input',()=>{catFilters.q=$('#catq').value;catFilters.dept=$('#catdept').value;catFilters.vendor=$('#catvendor').value;catFilters.status=$('#catstatus').value;catFilters.low=$('#catlow').checked;catFilters.page=1;drawCat();});});
+  drawCat();
+};
+function catData(){return ITEMS.filter(i=>{
+  if(catFilters.q){const q=catFilters.q.toLowerCase();if(!(i.name.toLowerCase().includes(q)||i.upc.toLowerCase().includes(q)))return false;}
+  if(catFilters.dept&&i.dept!==catFilters.dept)return false;
+  if(catFilters.vendor&&i.vid!==catFilters.vendor)return false;
+  if(catFilters.status&&i.status!==catFilters.status)return false;
+  if(catFilters.low&&i.status!=='Low Stock')return false;
+  return true;});}
+function drawCat(){
+  const data=catData();const per=6;const pages=Math.max(1,Math.ceil(data.length/per));if(catFilters.page>pages)catFilters.page=pages;
+  const rows=data.slice((catFilters.page-1)*per,catFilters.page*per);
+  $('#cattbl').innerHTML=`<tr><th>UPC</th><th>Item Name</th><th>Department</th><th>Size</th><th class="num">Qty</th><th class="num">Cost</th><th class="num">Price</th><th class="num">Margin</th><th>Vendor Code</th><th>Last Purch.</th><th>Status</th><th>Action</th></tr>`+
+    (rows.length?rows.map((i,idx)=>{const gi=ITEMS.indexOf(i);const m=marginPct(i.price,i.cost);const low=i.status==='Low Stock';
+    return `<tr class="${low?'rowlow':''}"><td class="mono sub">${esc(i.upc)}</td><td><b>${esc(i.name)}</b>${i.hotDeal?' <span class="pill p-low" style="font-size:9.5px;vertical-align:middle">Hot Deal</span>':''}</td><td>${esc(i.dept)}</td><td class="sub">${esc(i.size)}</td><td class="num ${low?'neg':''}">${i.qty}</td><td class="num">${money(i.cost)}</td><td class="num">${i.price?money(i.price):'—'}</td><td class="num ${m<0?'marginbad':''}">${i.price?mpFmt(m):'—'}</td><td class="sub">${esc(i.vcode)}</td><td class="sub">${esc(i.last)}</td><td>${statusPill(i.status)}</td>
+      <td><span class="iconbtn" title="Edit" onclick="editItem(${gi})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L18 10l-4-4L4 16z" stroke="#124559" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+      <span class="iconbtn" title="Toggle active" onclick="toggleItem(${gi})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3v9" stroke="#64707D" stroke-width="1.7" stroke-linecap="round"/><path d="M6 6a8 8 0 1012 0" stroke="#64707D" stroke-width="1.7" stroke-linecap="round"/></svg></span></td></tr>`;}).join('')
+    :`<tr><td colspan="12" style="text-align:center;color:var(--slate);padding:30px">No items match your filters.</td></tr>`);
+  $('#catpager').innerHTML=`<div class="pager"><span>${data.length} item(s)</span><div class="pg">${Array.from({length:pages},(_,p)=>`<button class="${p+1===catFilters.page?'on':''}" onclick="catFilters.page=${p+1};drawCat()">${p+1}</button>`).join('')}</div></div>`;
+}
+function toggleItem(gi){const i=ITEMS[gi];i.status=i.status==='Inactive'?'Active':'Inactive';toast(i.name+' set '+i.status);drawCat();}
+function editItem(gi){nav('additem');setTimeout(()=>fillItemForm(ITEMS[gi]),20);}
+
+/* ---- ADD / EDIT ITEM ---- */
+RENDER.additem=()=>{
+  host().innerHTML=`
+  <div class="phead"><div><h1 id="aititle">Add New Item</h1><div class="sub">Create a catalog product with pricing, inventory, and vendor details</div></div>
+    <div class="acts"><button class="btn ghost" onclick="nav('catalog')">Cancel</button><button class="btn ghost" onclick="saveItem('Draft')">Save as Draft</button><button class="btn teal" onclick="saveItem('Active')">Save Item</button></div>
+  </div>
+  <div class="grid2">
+    <div class="card" style="padding:20px">
+      <div class="fsect">Product information</div>
+      <div class="fgrid">
+        <div class="fld"><label>UPC / Barcode</label><input id="i_upc" placeholder="e.g. 0 12000 00934 1"><div class="hint"><span class="btn link" onclick="genUpc()" style="font-size:11px">Generate UPC</span> for items with no barcode</div></div>
+        <div class="fld"><label>Item Name <span class="req">*</span></label><input id="i_name" placeholder="Product name"><div class="errmsg">Item name is required</div></div>
+      </div>
+      <div class="fgrid">
+        <div class="fld"><label>Department <span class="req">*</span></label><select id="i_dept">${DEPTS.map(d=>`<option>${d}</option>`).join('')}</select></div>
+        <div class="fld"><label>Size</label><input id="i_size" placeholder="e.g. Case of 24"></div>
+      </div>
+      <div class="fgrid">
+        <div class="fld"><label>Unit of Measure</label><select id="i_uom"><option>Each</option><option>Pack</option><option>Case</option><option>Box</option></select></div>
+        <div class="fld"><label>Status</label><select id="i_status"><option>Active</option><option>Inactive</option></select></div>
+      </div>
+      <div class="fld"><label>Description</label><textarea id="i_desc" rows="2" placeholder="Optional description shown on the item page"></textarea></div>
+    </div>
+    <div>
+      <div class="card" style="padding:20px;margin-bottom:16px">
+        <div class="fsect">Pricing</div>
+        <div class="grid3">
+          <div class="fld"><label>Cost <span class="req">*</span></label><input id="i_cost" type="number" step="0.01" placeholder="0.00" oninput="recalcItemMargin()"></div>
+          <div class="fld"><label>Price <span class="req">*</span></label><input id="i_price" type="number" step="0.01" placeholder="0.00" oninput="recalcItemMargin()"></div>
+          <div class="fld"><label>Margin</label><div class="marginout" id="i_margin">—</div></div>
+        </div>
+      </div>
+      <div class="card" style="padding:20px;margin-bottom:16px">
+        <div class="fsect">App merchandising</div>
+        <span class="switch"><span class="toggle off" id="i_hot" onclick="this.classList.toggle('off')"></span> Feature as Hot Deal</span>
+        <div class="hint" style="margin-top:6px">Featured items appear in the app's Top Deals / Hot Items rails on the home screen.</div>
+        <div class="fgrid" style="margin-top:14px">
+          <div class="fld"><label>App rail</label><select id="i_rail"><option>Top Deals</option><option>Hot Items</option></select></div>
+          <div class="fld"><label>Compare-at price (was)</label><input id="i_was" type="number" step="0.01" placeholder="e.g. 14.40"><div class="hint">Shows a struck-through price in Top Deals</div></div>
+        </div>
+      </div>
+      <div class="card" style="padding:20px;margin-bottom:16px">
+        <div class="fsect">Inventory</div>
+        <div class="grid3">
+          <div class="fld"><label>Opening Stock</label><input id="i_qty" type="number" placeholder="0"></div>
+          <div class="fld"><label>Reorder Point</label><input id="i_reorder" type="number" placeholder="0"></div>
+          <div class="fld"><label>Location</label><input id="i_loc" placeholder="Aisle / bin"></div>
+        </div>
+      </div>
+      <div class="card" style="padding:20px">
+        <div class="fsect">Vendor</div>
+        <div class="fgrid">
+          <div class="fld"><label>Vendor</label><select id="i_vendor">${VENDORS.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('')}</select></div>
+          <div class="fld"><label>Vendor Code</label><input id="i_vcode" placeholder="Supplier item code"></div>
+        </div>
+        <div class="fgrid">
+          <div class="fld"><label>Vendor ID</label><input id="i_vid" class="readonly" readonly value="V-1001"></div>
+          <div class="fld"><label>Last Purchased</label><input id="i_last" type="date"></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  $('#i_vendor').addEventListener('change',e=>{$('#i_vid').value=e.target.value;});
+};
+function recalcItemMargin(){const c=parseFloat($('#i_cost').value)||0,p=parseFloat($('#i_price').value)||0;const el=$('#i_margin');if(p>0){const m=marginPct(p,c);el.textContent=mpFmt(m);el.className='marginout '+(m<0?'marginbad':'');}else{el.textContent='—';el.className='marginout';}}
+function genUpc(){const base='2'+Math.floor(100000000000+Math.random()*899999999999).toString().slice(0,11);$('#i_upc').value=base.replace(/(.)(.{5})(.{5})(.)/,'$1 $2 $3 $4');toast('Generated in-store UPC','ok');}
+function fillItemForm(it){$('#aititle').textContent='Edit item';$('#i_upc').value=it.upc;$('#i_name').value=it.name;$('#i_dept').value=it.dept;$('#i_size').value=it.size;$('#i_status').value=it.status==='Draft'?'Inactive':it.status;$('#i_cost').value=it.cost;$('#i_price').value=it.price||'';$('#i_qty').value=it.qty;$('#i_vcode').value=it.vcode;$('#i_vid').value=it.vid;$('#i_last').value=it.last!=='—'?it.last:'';$('#i_hot').classList.toggle('off',!it.hotDeal);if(it.rail)$('#i_rail').value=it.rail;$('#i_was').value=it.wasPrice||'';recalcItemMargin();}
+function saveItem(mode){
+  const name=$('#i_name').value.trim(),cost=parseFloat($('#i_cost').value),price=parseFloat($('#i_price').value);
+  let ok=true;const ne=$('#i_name');if(!name){ne.classList.add('err');ok=false;}else ne.classList.remove('err');
+  if(mode==='Active'&&(isNaN(cost)||isNaN(price))){toast('Cost and Price are required to publish','warn');ok=false;}
+  if(!ok)return;
+  ITEMS.unshift({upc:$('#i_upc').value||'—',name,dept:$('#i_dept').value,size:$('#i_size').value||'Each',qty:parseInt($('#i_qty').value)||0,cost:cost||0,price:price||0,vcode:$('#i_vcode').value||'—',vid:$('#i_vid').value,last:$('#i_last').value||'—',hotDeal:!$('#i_hot').classList.contains('off'),rail:$('#i_rail').value,wasPrice:parseFloat($('#i_was').value)||null,status:mode==='Draft'?'Draft':'Active'});
+  toast('Item saved'+(mode==='Draft'?' as draft':''),'ok');nav('catalog');
+}
+
+/* ---- PROMOTIONS ---- */
+RENDER.promotions=()=>{
+  host().innerHTML=`
+  <div class="phead"><div><h1>Promotions</h1><div class="sub">Discounts and deals that surface in the app's Top Deals</div></div>
+    <div class="acts"><button class="btn teal" onclick="promoModal()">+ Create Promotion</button></div></div>
+  <div class="toolbar"><div class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#64707D" stroke-width="1.8"/><path d="M20 20l-3.5-3.5" stroke="#64707D" stroke-width="1.8" stroke-linecap="round"/></svg><input placeholder="Search promotions"></div>
+  <select class="sel"><option>Any status</option><option>Active</option><option>Scheduled</option><option>Ended</option></select></div>
+  <div class="card"><div style="overflow-x:auto"><table class="tbl"><tr><th>Promotion</th><th>Type</th><th>Discount</th><th>Eligible</th><th>Start</th><th>End</th><th>Status</th><th>Action</th></tr>
+  ${PROMOS.map((p,i)=>`<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.type)}</td><td>${esc(p.discount)}</td><td class="sub">${esc(p.applies)}</td><td class="sub">${p.start}</td><td class="sub">${p.end}</td><td>${statusPill(p.status)}</td><td><span class="iconbtn" onclick="promoModal(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L18 10l-4-4L4 16z" stroke="#124559" stroke-width="1.6" stroke-linejoin="round"/></svg></span></td></tr>`).join('')}
+  </table></div></div>`;
+};
+function promoModal(i){const p=i!=null?PROMOS[i]:null;
+  openModal(`<div class="mhead"><h3>${p?'Edit':'Create'} Promotion</h3><span class="x" onclick="closeModal()">&times;</span></div>
+  <div class="mbody">
+    <div class="fld"><label>Promotion name</label><input id="pm_name" value="${p?esc(p.name):''}"></div>
+    <div class="fgrid">
+      <div class="fld"><label>Type</label><select id="pm_type"><option>Percentage off</option><option>Fixed amount off</option><option>Buy X Get Y</option><option>Bundle / multi-buy</option><option>Promotional price</option></select></div>
+      <div class="fld"><label>Apply to</label><select id="pm_apply"><option>All items</option><option>Department</option><option>Category</option><option>Specific items</option></select></div>
+    </div>
+    <div class="fld"><label>Item / department selector</label><input placeholder="Search items or pick a department"></div>
+    <div class="fld"><label>Discount configuration</label><input id="pm_disc" placeholder="e.g. 25% or $2.00 off or 3 for $30"></div>
+    <div class="fgrid"><div class="fld"><label>Start date</label><input type="date" id="pm_start"></div><div class="fld"><label>End date</label><input type="date" id="pm_end"></div></div>
+    <div class="fgrid"><div class="fld"><label>Priority</label><input type="number" value="1"></div><div class="fld"><label>Active</label><br><span class="switch"><span class="toggle" id="pm_tog" onclick="this.classList.toggle('off')"></span> Enabled</span></div></div>
+  </div>
+  <div class="mfoot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn teal" onclick="savePromo()">Save Promotion</button></div>`);
+  if(p){$('#pm_type').value=p.type;$('#pm_start').value=p.start;$('#pm_end').value=p.end;$('#pm_disc').value=p.discount;}
+}
+function savePromo(){const n=$('#pm_name').value.trim();if(!n){toast('Name required','warn');return;}PROMOS.unshift({name:n,type:$('#pm_type').value,discount:$('#pm_disc').value||'—',applies:$('#pm_apply').value,start:$('#pm_start').value||'—',end:$('#pm_end').value||'—',status:$('#pm_tog').classList.contains('off')?'Scheduled':'Active'});closeModal();toast('Promotion saved','ok');RENDER.promotions();}
+
+/* ---- INVENTORY / ADJUSTMENTS ---- */
+RENDER.inventory=()=>{
+  host().innerHTML=`
+  <div class="phead"><div><h1>Inventory / Stock Adjustments</h1><div class="sub">Manual corrections with a full audit history</div></div>
+    <div class="acts"><button class="btn teal" onclick="adjModal()">+ New Stock Adjustment</button></div></div>
+  <div class="toolbar"><div class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#64707D" stroke-width="1.8"/><path d="M20 20l-3.5-3.5" stroke="#64707D" stroke-width="1.8" stroke-linecap="round"/></svg><input placeholder="Search UPC or item"></div>
+  <select class="sel"><option>All types</option><option>Increase</option><option>Decrease</option><option>Damaged</option><option>Expired</option><option>Cycle count</option></select>
+  <select class="sel"><option>All departments</option>${DEPTS.map(d=>`<option>${d}</option>`).join('')}</select></div>
+  <div class="card"><div style="overflow-x:auto"><table class="tbl"><tr><th>Adj ID</th><th>Date</th><th>Item</th><th>UPC</th><th class="num">Prev</th><th class="num">Adjust</th><th class="num">New</th><th>Reason</th><th>By</th></tr>
+  ${ADJ.map(a=>`<tr><td><b>${a.id}</b></td><td class="sub">${a.date}</td><td>${esc(a.item)}</td><td class="mono sub">${esc(a.upc)}</td><td class="num">${a.prev}</td><td class="num ${a.adj<0?'neg':'pos'}">${a.adj>0?'+':''}${a.adj}</td><td class="num">${a.neww}</td><td class="sub">${esc(a.reason)}</td><td class="sub">${esc(a.by)}</td></tr>`).join('')}
+  </table></div></div>`;
+};
+function adjModal(){
+  openModal(`<div class="mhead"><h3>New Stock Adjustment</h3><span class="x" onclick="closeModal()">&times;</span></div>
+  <div class="mbody">
+    <div class="fld"><label>Item</label><select id="aj_item" onchange="adjCur()">${ITEMS.map((i,x)=>`<option value="${x}">${esc(i.name)} — ${esc(i.upc)}</option>`).join('')}</select></div>
+    <div class="fgrid">
+      <div class="fld"><label>Current quantity</label><input id="aj_cur" class="readonly" readonly></div>
+      <div class="fld"><label>Adjustment type</label><select id="aj_type" onchange="adjCalc()"><option>Increase</option><option>Decrease</option><option>Set exact quantity</option><option>Damaged</option><option>Expired</option><option>Return to vendor</option><option>Cycle count correction</option></select></div>
+    </div>
+    <div class="fgrid">
+      <div class="fld"><label>Adjustment quantity</label><input id="aj_qty" type="number" value="1" oninput="adjCalc()"></div>
+      <div class="fld"><label>Resulting quantity</label><input id="aj_res" class="readonly" readonly></div>
+    </div>
+    <div class="fld"><label>Reason / notes</label><textarea id="aj_reason" rows="2" placeholder="Why this adjustment?"></textarea></div>
+  </div>
+  <div class="mfoot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn teal" onclick="saveAdj()">Save Adjustment</button></div>`);
+  adjCur();
+}
+function adjCur(){const i=ITEMS[$('#aj_item').value];$('#aj_cur').value=i.qty;adjCalc();}
+function adjCalc(){const cur=parseInt($('#aj_cur').value)||0;const q=parseInt($('#aj_qty').value)||0;const t=$('#aj_type').value;let res=cur;
+  if(t==='Increase')res=cur+q;else if(t==='Set exact quantity')res=q;else res=cur-Math.abs(q);
+  $('#aj_res').value=res;}
+function saveAdj(){const idx=$('#aj_item').value;const i=ITEMS[idx];const cur=i.qty;const res=parseInt($('#aj_res').value)||0;const delta=res-cur;
+  ADJ.unshift({id:'ADJ-'+(2052+ADJ.length),date:'2026-09-11',item:i.name,upc:i.upc,prev:cur,adj:delta,neww:res,reason:$('#aj_reason').value||$('#aj_type').value,by:'Amir M.'});
+  i.qty=res;if(res<=10&&i.status==='Active')i.status='Low Stock';if(res>10&&i.status==='Low Stock')i.status='Active';
+  closeModal();toast('Stock adjusted: '+cur+' → '+res,'ok');RENDER.inventory();}
+
+/* ---- QUICK COMPLETE ---- */
+RENDER.quickcomplete=()=>{
+  const done=IMPORTED.filter(i=>i.status==='Ready to Publish').length;
+  host().innerHTML=`
+  <div class="phead"><div><h1>Imported Items / Quick Complete</h1><div class="sub">${IMPORTED.length} imported items need review · ${done} of ${IMPORTED.length} completed</div></div></div>
+  <div class="card"><div style="overflow-x:auto"><table class="tbl"><tr><th>Batch</th><th>UPC</th><th>Imported Name</th><th>Matched</th><th>Dept</th><th class="num">Cost</th><th class="num">Price</th><th>Vendor</th><th>Missing</th><th>Status</th><th>Action</th></tr>
+  ${IMPORTED.map((it,i)=>`<tr><td class="sub">${it.batch}</td><td class="mono sub">${esc(it.upc)}</td><td><b>${esc(it.name)}</b></td><td class="sub">${esc(it.matched)}</td><td>${esc(it.dept)}</td><td class="num">${money(it.cost)}</td><td class="num">${it.price?money(it.price):'<span class="flag">missing</span>'}</td><td class="sub">${esc(it.vendor)}</td><td>${it.missing.length?`<span class="flag">${it.missing.join(', ')}</span>`:'<span class="pos">none</span>'}</td><td>${statusPill(it.status)}</td><td><button class="btn ghost sm" onclick="qcPanel(${i})">Quick Complete</button></td></tr>`).join('')}
+  </table></div></div>`;
+};
+function qcPanel(i){const it=IMPORTED[i];const dup=it.missing.includes('Possible duplicate');
+  openModal(`<div class="mhead"><h3>Quick Complete — ${esc(it.name)}</h3><span class="x" onclick="closeModal()">&times;</span></div>
+  <div class="mbody">
+    ${dup?`<div class="vendorbox" style="background:#FBE9E7;border-color:#F3D3CE;color:#8a2c22;margin-bottom:14px">⚠ A similar UPC / item name already exists in the catalog. Review before saving or mark as duplicate.</div>`:''}
+    <div style="font-size:11px;color:var(--slate);margin-bottom:10px">Grey fields are imported (read-only). White fields need your confirmation.</div>
+    <div class="fgrid">
+      <div class="fld"><label>UPC (imported)</label><input class="readonly" readonly value="${esc(it.upc)}"></div>
+      <div class="fld"><label>Item name</label><input id="qc_name" value="${esc(it.name)}"></div>
+    </div>
+    <div class="fgrid">
+      <div class="fld"><label>Department</label><select id="qc_dept">${DEPTS.map(d=>`<option ${d===it.dept?'selected':''}>${d}</option>`).join('')}</select></div>
+      <div class="fld"><label>Size</label><input id="qc_size" placeholder="e.g. Case of 12"></div>
+    </div>
+    <div class="fgrid">
+      <div class="fld"><label>New Cost (imported)</label><input class="readonly" readonly value="${money(it.cost)}"></div>
+      <div class="fld"><label>Price <span class="req">*</span></label><input id="qc_price" type="number" step="0.01" value="${it.price||''}" placeholder="Set a sell price" oninput="qcMargin(${it.cost})"></div>
+    </div>
+    <div class="fgrid">
+      <div class="fld"><label>Margin (from new cost)</label><div class="marginout" id="qc_margin">—</div></div>
+      <div class="fld"><label>Quantity</label><input id="qc_qty" type="number" value="0"></div>
+    </div>
+    <div class="fld"><label>Vendor</label><input class="readonly" readonly value="${esc(it.vendor)}"></div>
+  </div>
+  <div class="mfoot"><button class="btn ghost" onclick="closeModal()">Skip</button><button class="btn red" onclick="qcDup(${i})">Mark as Duplicate</button><button class="btn teal" onclick="qcSave(${i})">Save Item</button></div>`);
+  qcMargin(it.cost);
+}
+function qcMargin(cost){const p=parseFloat($('#qc_price').value)||0;const el=$('#qc_margin');if(p>0){const m=marginPct(p,cost);el.textContent=mpFmt(m);el.className='marginout '+(m<0?'marginbad':'');}else{el.textContent='<span class="flag">set price</span>';el.innerHTML='<span class="flag">set price to calc</span>';el.className='marginout';}}
+function qcSave(i){const it=IMPORTED[i];const p=parseFloat($('#qc_price').value);if(!p){toast('Set a price to publish','warn');return;}
+  ITEMS.unshift({upc:it.upc,name:$('#qc_name').value,dept:$('#qc_dept').value,size:$('#qc_size').value||'Each',qty:parseInt($('#qc_qty').value)||0,cost:it.cost,price:p,vcode:'—',vid:'V-1001',last:'2026-09-11',status:'Active'});
+  IMPORTED.splice(i,1);closeModal();toast('Item published to catalog','ok');RENDER.quickcomplete();}
+function qcDup(i){IMPORTED.splice(i,1);closeModal();toast('Marked as duplicate','warn');RENDER.quickcomplete();}
+
+/* ---- PURCHASE ORDERS ---- */
+function poTotals(p){const items=p.lines.reduce((s,l)=>s+l.qtyOrd,0);const cost=p.lines.reduce((s,l)=>s+l.qtyOrd*l.cost,0);const ship=p.lines.length?25:0;return {items,cost,ship,total:cost+ship};}
+function recalcRecv(p){if(p.status==='Cancelled')return;const ord=p.lines.reduce((s,l)=>s+l.qtyOrd,0),rec=p.lines.reduce((s,l)=>s+l.qtyRec,0);p.status=rec===0?'Pending':(rec>=ord?'Received':'Partially Received');}
+RENDER.pos=()=>{
+  host().innerHTML=`
+  <div class="phead"><div><h1>Purchase Orders</h1><div class="sub">Raise, track, and receive supplier orders</div></div>
+    <div class="acts"><button class="btn ghost sm" onclick="nav('importpo')">Import From Excel</button><button class="btn ghost sm" onclick="exportCSV('pos')">Export to Excel</button><button class="btn teal" onclick="nav('createpo')">+ Create New PO</button></div></div>
+  <div class="toolbar"><div class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#64707D" stroke-width="1.8"/><path d="M20 20l-3.5-3.5" stroke="#64707D" stroke-width="1.8" stroke-linecap="round"/></svg><input placeholder="Search PO, vendor, item"></div>
+  <select class="sel"><option>Any status</option><option>Pending</option><option>Partially Received</option><option>Received</option><option>Paid</option><option>Cancelled</option></select>
+  <select class="sel"><option>All vendors</option>${VENDORS.map(v=>`<option>${esc(v.name)}</option>`).join('')}</select></div>
+  <div class="card"><div style="overflow-x:auto"><table class="tbl"><tr><th>PO Number</th><th>Vendor</th><th>Order Date</th><th>Expected</th><th class="num">Items</th><th class="num">Total Cost</th><th>Status</th><th>Payment</th><th>Created By</th><th>Action</th></tr>
+  ${POS.map((p,i)=>`<tr><td><b>${p.no}</b></td><td>${esc(p.vendor)}</td><td class="sub">${p.date}</td><td class="sub">${p.exp}</td><td class="num">${poTotals(p).items}</td><td class="num">${money(poTotals(p).total)}</td><td>${statusPill(p.status)}</td><td>${statusPill(p.pay)}</td><td class="sub">${esc(p.by)}</td>
+    <td><span class="iconbtn" title="View" onclick="poDetail(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z" stroke="#124559" stroke-width="1.5"/><circle cx="12" cy="12" r="2.5" stroke="#124559" stroke-width="1.5"/></svg></span>
+    <span class="iconbtn" title="Delete" onclick="delPo(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5h6v2M6 7l1 13h10l1-13" stroke="#C0392B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></td></tr>`).join('')}
+  </table></div></div>`;
+};
+function delPo(i){const p=POS[i];openModal(`<div class="mhead"><h3>Delete ${p.no}?</h3><span class="x" onclick="closeModal()">&times;</span></div><div class="mbody">This will permanently remove purchase order <b>${p.no}</b> for ${esc(p.vendor)}. This can't be undone.</div><div class="mfoot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn red" onclick="POS.splice(${i},1);closeModal();toast('${p.no} deleted','warn');RENDER.pos()">Delete PO</button></div>`,'slim');}
+
+/* ---- CREATE PO ---- */
+let poLines=[
+  {upc:'0 12000 00934 1',name:'Cola 330ml Can',size:'Case of 24',qty:40,ecost:11.90,ncost:11.90,price:14.40},
+  {upc:'0 12000 55120 8',name:'Spring Water 500ml',size:'Case of 24',qty:60,ecost:6.00,ncost:5.90,price:7.20},
+];
+RENDER.createpo=()=>{
+  host().innerHTML=`
+  <div class="phead"><div><h1>Create Purchase Order</h1><div class="sub">PO-1043 · draft</div></div>
+    <div class="acts"><button class="btn ghost" onclick="nav('pos')">Cancel</button><button class="btn ghost" onclick="toast('Saved as draft','ok')">Save Draft</button><button class="btn ghost" onclick="exportPoDraft()">Export to Excel</button><button class="btn ghost" onclick="submitPo(true)">Send EDI</button><button class="btn teal" onclick="submitPo(false)">Submit PO</button></div></div>
+  <div class="card" style="padding:20px;margin-bottom:16px">
+    <div class="grid3">
+      <div class="fld"><label>PO Number</label><input class="readonly" readonly value="PO-1043"></div>
+      <div class="fld"><label>Order Date</label><input type="date" value="2026-09-11"></div>
+      <div class="fld"><label>Expected Delivery</label><input type="date"></div>
+    </div>
+    <div class="grid3">
+      <div class="fld"><label>Vendor</label><select id="po_vendor" onchange="poVendor()">${VENDORS.map(v=>`<option>${esc(v.name)}</option>`).join('')}</select></div>
+      <div class="fld"><label>Payment terms</label><input id="po_terms" class="readonly" readonly value="Net 30"></div>
+      <div class="fld"><label>Notes</label><input placeholder="Optional"></div>
+    </div>
+    <div class="vendorbox" id="po_vbox"></div>
+  </div>
+  <div class="card"><div class="ch">Line items <button class="btn ghost sm" onclick="addPoLine()">+ Add item</button></div>
+    <div style="overflow-x:auto"><table class="tbl" id="po_tbl"></table></div>
+  </div>
+  <div style="display:flex;justify-content:flex-end;margin-top:16px"><div class="card" style="padding:16px 20px;min-width:280px" id="po_totals"></div></div>`;
+  poVendor();drawPo();
+};
+function poVendor(){const v=VENDORS.find(x=>x.name===$('#po_vendor').value)||VENDORS[0];$('#po_terms').value=v.terms;$('#po_vbox').innerHTML=`<b>${esc(v.name)}</b> · ${v.id} · ${v.code}<br>${esc(v.contact)} · ${v.phone} · ${esc(v.email)}<br>Terms: ${v.terms}`;}
+function drawPo(){
+  $('#po_tbl').innerHTML=`<tr><th>UPC</th><th>Item</th><th>Size</th><th class="num">Qty</th><th class="num">Existing Cost</th><th class="num">New Cost</th><th class="num">Price</th><th class="num">Margin</th><th class="num">Line Total</th><th></th></tr>`+
+  poLines.map((l,i)=>{const m=marginPct(l.price,l.ncost);const lt=l.qty*l.ncost;return `<tr><td class="mono sub">${esc(l.upc)}</td><td><b>${esc(l.name)}</b></td><td class="sub">${esc(l.size)}</td>
+    <td class="num"><input type="number" value="${l.qty}" style="width:64px" oninput="poLines[${i}].qty=parseFloat(this.value)||0;drawPo()"></td>
+    <td class="num sub">${money(l.ecost)}</td>
+    <td class="num"><input type="number" step="0.01" value="${l.ncost}" style="width:78px" oninput="poLines[${i}].ncost=parseFloat(this.value)||0;drawPo()"></td>
+    <td class="num">${money(l.price)}</td>
+    <td class="num ${m<0?'marginbad':''}">${mpFmt(m)}</td>
+    <td class="num">${money(lt)}</td>
+    <td><span class="iconbtn" onclick="poLines.splice(${i},1);drawPo()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#C0392B" stroke-width="1.8" stroke-linecap="round"/></svg></span></td></tr>`;}).join('');
+  const sub=poLines.reduce((s,l)=>s+l.qty*l.ncost,0);const tax=sub*0.0;const ship=sub>0?25:0;
+  $('#po_totals').innerHTML=`<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px"><span class="sub">Subtotal</span><b>${money(sub)}</b></div>
+  <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px"><span class="sub">Shipping / fees</span><b>${money(ship)}</b></div>
+  <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:700;padding-top:10px;border-top:1px solid var(--border)"><span>Grand Total</span><span>${money(sub+ship)}</span></div>`;
+}
+function addPoLine(){openModal('<div class="mhead"><h3>Add item to purchase order</h3><span class="x" onclick="closeModal()">&times;</span></div><div class="mbody"><div class="search" style="margin-bottom:12px">'+SICON+'<input id="po_ai_q" placeholder="Search catalog by name, UPC, or vendor code" oninput="drawPoPick()"></div><div style="max-height:360px;overflow:auto"><table class="tbl" id="po_ai_tbl"></table></div><div class="hint" style="font-size:11.5px;color:var(--slate);margin-top:8px">Pick an item, then set the order quantity and confirm the cost on the PO line.</div></div>','wide');drawPoPick();}
+function drawPoPick(){const q=($('#po_ai_q').value||'').toLowerCase();const rows=ITEMS.filter(it=>it.status!=='Draft'&&(!q||(it.name+' '+it.upc+' '+it.vcode).toLowerCase().includes(q))).slice(0,25);
+  $('#po_ai_tbl').innerHTML='<tr><th>Item</th><th>UPC</th><th>Size</th><th class="num">Cost</th><th class="num">Price</th><th></th></tr>'+(rows.length?rows.map(it=>{const gi=ITEMS.indexOf(it);const dup=poLines.some(l=>l.upc===it.upc);return '<tr><td><b>'+esc(it.name)+'</b><div class="sub">'+esc(it.dept)+'</div></td><td class="mono sub">'+esc(it.upc)+'</td><td class="sub">'+esc(it.size)+'</td><td class="num">'+money(it.cost)+'</td><td class="num">'+money(it.price)+'</td><td>'+(dup?'<span class="sub">Added</span>':'<button class="btn ghost sm" onclick="addPoItem('+gi+')">Add</button>')+'</td></tr>';}).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--slate);padding:24px">No items match.</td></tr>');}
+function addPoItem(gi){const it=ITEMS[gi];const ex=poLines.find(l=>l.upc===it.upc);if(ex){ex.qty+=1;}else{poLines.push({upc:it.upc,name:it.name,size:it.size,qty:1,ecost:it.cost,ncost:it.cost,price:it.price});}closeModal();toast(it.name+' added','ok');drawPo();}
+let poSeq=1042;
+function submitPo(viaEdi){if(!poLines.length){toast('Add at least one item','warn');return;}
+  const v=VENDORS.find(x=>x.name===$('#po_vendor').value)||VENDORS[0];const no='PO-'+(++poSeq);
+  POS.unshift({no,vendor:v.name,vendorId:v.id,date:'2026-09-11',exp:$('#po_exp')?$('#po_exp').value||'—':'—',by:'Amir M.',terms:v.terms,status:'Pending',pay:'Unpaid',edi:viaEdi?'Sent':'Not Sent',
+    lines:poLines.map(l=>({upc:l.upc,name:l.name,size:l.size,qtyOrd:l.qty,qtyRec:0,cost:l.ncost})),receipts:[]});
+  toast(no+(viaEdi?' submitted · EDI 850 sent':' submitted'),'ok');nav('pos');
+}
+function exportPoDraft(){const rows=[['UPC','Item','Size','Qty','Unit Cost','Line Total']];poLines.forEach(l=>rows.push([l.upc,l.name,l.size,l.qty,l.ncost,(l.qty*l.ncost).toFixed(2)]));csvDownload('PO-draft.csv',rows);toast('PO exported to CSV','ok');}
+
+/* ---- PO DETAIL · RECEIVING · PAYMENT ---- */
+let curPo=null;
+function poDetail(i){curPo=i;const p=POS[i];const v=VENDORS.find(x=>x.id===p.vendorId)||VENDORS.find(x=>x.name===p.vendor)||{};
+  const canReceive=p.status!=='Received'&&p.status!=='Cancelled';
+  host().innerHTML=`
+  <div class="phead"><div><h1>${p.no}</h1><div class="sub">${esc(p.vendor)} · ordered ${p.date} · expected ${p.exp} · by ${esc(p.by)}</div>
+    <div class="statgrp" style="margin-top:10px">${statusPill(p.status)} ${statusPill(p.pay)} <span class="sub" style="font-size:11.5px">EDI:</span> ${statusPill(p.edi||'Not Sent')}</div></div>
+    <div class="acts">
+      <button class="btn ghost" onclick="nav('pos')">Back</button>
+      <button class="btn ghost" onclick="exportPo()">Export to Excel</button>
+      <button class="btn ghost" onclick="poSendEdi()">Send EDI</button>
+      ${canReceive?`<button class="btn ghost" onclick="receivePo()">Receive Items</button>`:''}
+      ${p.status==='Received'&&p.pay!=='Paid'?`<button class="btn amber" onclick="payPo()">Record Payment</button>`:''}
+      <button class="btn teal" onclick="toast('PO saved','ok')">Save</button>
+    </div></div>
+  <div class="twocol">
+    <div>
+      <div class="card"><div class="ch">Line items</div><div style="overflow-x:auto"><table class="tbl" id="pod_tbl"></table></div></div>
+      <div class="card" style="padding:16px;margin-top:16px"><div class="fsect">Receiving history</div><div id="pod_recv"></div></div>
+    </div>
+    <div>
+      <div class="card" style="padding:16px;margin-bottom:16px"><div class="fsect">Vendor</div><div class="acctbox"><b>${esc(p.vendor)}</b> · ${v.id||''}<br>${esc(v.contact||'')} · ${v.phone||''}<br>${esc(v.email||'')}<br><span class="lbl">Terms:</span> ${p.terms||v.terms||'—'}</div></div>
+      <div class="card" style="padding:16px"><div class="fsect">Totals</div><div id="pod_tot"></div></div>
+    </div>
+  </div>`;
+  drawPoDetail();
+}
+function drawPoDetail(){const p=POS[curPo];
+  $('#pod_tbl').innerHTML=`<tr><th>UPC</th><th>Item</th><th>Size</th><th class="num">Ordered</th><th class="num">Received</th><th class="num">Remaining</th><th class="num">Unit Cost</th><th class="num">Line Total</th></tr>`+
+  p.lines.map(l=>{const rem=l.qtyOrd-l.qtyRec;return `<tr><td class="mono sub">${esc(l.upc)}</td><td><b>${esc(l.name)}</b></td><td class="sub">${esc(l.size)}</td><td class="num">${l.qtyOrd}</td><td class="num">${l.qtyRec}</td><td class="num ${rem>0?'neg':''}">${rem}</td><td class="num">${money(l.cost)}</td><td class="num">${money(l.qtyOrd*l.cost)}</td></tr>`;}).join('');
+  const t=poTotals(p);
+  $('#pod_tot').innerHTML=`<div class="sumrow"><span class="lbl">Subtotal</span><b>${money(t.cost)}</b></div><div class="sumrow"><span class="lbl">Shipping / fees</span><b>${money(t.ship)}</b></div><div class="sumrow big"><span>Grand Total</span><span>${money(t.total)}</span></div><div class="sumrow" style="margin-top:10px"><span class="lbl">Payment</span><span>${statusPill(p.pay)}</span></div>`;
+  const rh=$('#pod_recv');if(rh)rh.innerHTML=p.receipts.length?p.receipts.map(r=>`<div style="font-size:12px;margin-bottom:8px"><b>${r.grn}</b> · ${r.date}<div class="sub">${r.lines.map(x=>esc(x.name)+' ×'+x.qty).join(', ')}</div></div>`).join(''):'<div class="sub" style="font-size:12px">No receipts yet.</div>';
+}
+function receivePo(){const p=POS[curPo];const grn='GRN-'+(4403+p.receipts.length+Math.floor(Math.random()*30));
+  const rows=p.lines.map((l,i)=>({i,l,rem:l.qtyOrd-l.qtyRec})).filter(r=>r.rem>0);
+  if(!rows.length){toast('Nothing left to receive','warn');return;}
+  openModal(`<div class="mhead"><h3>Receive against ${p.no}</h3><span class="x" onclick="closeModal()">&times;</span></div>
+  <div class="mbody">
+    <div class="grid3"><div class="fld"><label>Receipt (GRN) #</label><input class="readonly" readonly value="${grn}"></div><div class="fld"><label>Date received</label><input type="date" value="2026-09-11"></div><div class="fld"><label>Warehouse</label><select><option>Main Warehouse</option><option>Overflow Depot</option></select></div></div>
+    <div class="fld"><label>Delivery note / packing ref</label><input placeholder="Optional"></div>
+    <div style="overflow-x:auto"><table class="tbl"><tr><th>Item</th><th class="num">Ordered</th><th class="num">Prev Received</th><th class="num">Remaining</th><th class="num">Receive Now</th></tr>
+    ${rows.map(r=>`<tr><td><b>${esc(r.l.name)}</b></td><td class="num">${r.l.qtyOrd}</td><td class="num">${r.l.qtyRec}</td><td class="num">${r.rem}</td><td class="num"><input class="miniq" id="rc_${r.i}" type="number" value="${r.rem}" onchange="rcClamp(${r.i},${r.rem})"></td></tr>`).join('')}
+    </table></div>
+    <div class="hint" style="font-size:11.5px;color:var(--slate);margin-top:10px">Receive now defaults to the full remaining quantity. Enter less for a partial receipt — the balance stays open on the PO. Received stock is added to inventory.</div>
+  </div>
+  <div class="mfoot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn teal" onclick="completeReceive('${grn}')">Post Receipt</button></div>`,'wide');
+}
+function rcClamp(i,rem){let v=Math.min(parseFloat($('#rc_'+i).value)||0,rem);if(v<0)v=0;$('#rc_'+i).value=v;}
+function completeReceive(grn){const p=POS[curPo];const rl=[];
+  p.lines.forEach((l,i)=>{const inp=$('#rc_'+i);if(!inp)return;let q=Math.min(parseFloat(inp.value)||0,l.qtyOrd-l.qtyRec);if(q<=0)return;l.qtyRec+=q;rl.push({name:l.name,qty:q});const it=ITEMS.find(x=>x.upc===l.upc);if(it){it.qty+=q;if(it.status==='Low Stock'&&it.qty>10)it.status='Active';}});
+  if(!rl.length){toast('Enter a quantity to receive','warn');return;}
+  p.receipts.push({grn,date:'2026-09-11',lines:rl});recalcRecv(p);
+  closeModal();toast('Receipt '+grn+' posted — inventory updated','ok');poDetail(curPo);
+}
+function payPo(){const p=POS[curPo];const t=poTotals(p);openModal(`<div class="mhead"><h3>Record payment — ${p.no}</h3><span class="x" onclick="closeModal()">&times;</span></div><div class="mbody"><div class="grid2"><div class="fld"><label>Amount</label><input id="pop_amt" type="number" step="0.01" value="${t.total.toFixed(2)}"></div><div class="fld"><label>Method</label><select><option>Bank transfer</option><option>Cheque</option><option>Card</option><option>Cash</option></select></div></div><div class="fld"><label>Reference</label><input placeholder="Vendor invoice / payment ref"></div><div class="hint" style="font-size:12px;color:var(--slate)">Vendor terms: ${p.terms||'—'} · grand total ${money(t.total)}.</div></div><div class="mfoot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn teal" onclick="doPayPo()">Record Payment</button></div>`,'slim');}
+function doPayPo(){const p=POS[curPo];p.pay='Paid';closeModal();toast(p.no+' marked as paid','ok');poDetail(curPo);}
+function poSendEdi(){const p=POS[curPo];openModal(`<div class="mhead"><h3>Send EDI purchase order</h3><span class="x" onclick="closeModal()">&times;</span></div><div class="mbody">
+  <div class="fld"><label>Destination (vendor EDI account)</label><input class="readonly" readonly value="${esc(p.vendor)} · EDI ID 71152"></div>
+  <div class="fld"><label>Document type</label><input class="readonly" readonly value="Purchase Order 850"></div>
+  <div class="hint" style="color:var(--slate);font-size:12px">Prototype only — no live EDI transmission is performed.</div>
+  </div><div class="mfoot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn teal" onclick="doPoSendEdi()">Send PO 850</button></div>`,'slim');}
+function doPoSendEdi(){const p=POS[curPo];p.edi='Sent';closeModal();toast('EDI 850 sent to '+p.vendor,'ok');poDetail(curPo);}
+function exportPo(){const p=POS[curPo];const rows=[['PO','Vendor','Item','UPC','Ordered','Received','Unit Cost','Line Total','Status','Payment']];p.lines.forEach(l=>rows.push([p.no,p.vendor,l.name,l.upc,l.qtyOrd,l.qtyRec,l.cost,(l.qtyOrd*l.cost).toFixed(2),p.status,p.pay]));csvDownload(p.no+'.csv',rows);toast('PO exported to CSV','ok');}
+
+/* ---- IMPORT PO WIZARD ---- */
+let impStep=1;
+RENDER.importpo=()=>{impStep=1;drawImp();};
+function drawImp(){
+  host().innerHTML=`
+  <div class="phead"><div><h1>Import PO From Excel</h1><div class="sub">Turn a vendor spreadsheet into a purchase order</div></div></div>
+  <div class="wsteps">
+    ${[1,2,3,4].map(n=>{const labels={1:'Select Vendor',2:'Upload File',3:'Map & Validate',4:'Review & Create'};const cls=n<impStep?'done':n===impStep?'on':'';return `<div class="s ${cls}"><span class="n">${n<impStep?'✓':n}</span>${labels[n]}</div>${n<4?'<span class="ln"></span>':''}`;}).join('')}
+  </div>
+  <div class="card" style="padding:22px" id="imp_body"></div>`;
+  ({1:impV,2:impU,3:impM,4:impR}[impStep])();
+}
+function impV(){$('#imp_body').innerHTML=`
+  <div class="grid2"><div>
+    <div class="fld"><label>Select existing vendor</label><select id="imp_vendor" onchange="impVbox()">${VENDORS.filter(v=>v.active).map(v=>`<option>${esc(v.name)}</option>`).join('')}</select></div>
+    <span class="btn link" onclick="nav('vendors')">+ Create New Vendor</span>
+  </div>
+  <div class="vendorbox" id="imp_vbox"></div></div>
+  <div style="margin-top:20px;text-align:right"><button class="btn teal" onclick="impStep=2;drawImp()">Next: Upload file</button></div>`;
+  impVbox();
+}
+function impVbox(){const v=VENDORS.find(x=>x.name===$('#imp_vendor').value)||VENDORS[0];$('#imp_vbox').innerHTML=`<b>${esc(v.name)}</b><br>${v.id} · ${v.code}<br>${esc(v.contact)} · ${v.phone}<br>Terms: ${v.terms}`;}
+function impU(){$('#imp_body').innerHTML=`
+  <div class="drop"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M12 16V4m0 0l-4 4m4-4l4 4" stroke="#64707D" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" stroke="#64707D" stroke-width="1.7" stroke-linecap="round"/></svg>
+    <div style="font-weight:600;color:var(--ink);margin-bottom:4px">Drag &amp; drop your file here</div><div style="font-size:12px">Accepted: .xlsx, .xls, .csv</div>
+    <div style="margin-top:14px"><button class="btn ghost sm" onclick="impFile()">Browse Files</button> <button class="btn ghost sm" onclick="downloadTemplate()">Download Template</button></div>
+  </div>
+  <div id="imp_file"></div>
+  <div style="margin-top:20px;display:flex;justify-content:space-between"><button class="btn ghost" onclick="impStep=1;drawImp()">Back</button><button class="btn teal" id="imp_next2" style="display:none" onclick="impStep=3;drawImp()">Next: Map columns</button></div>`;
+}
+function impFile(){$('#imp_file').innerHTML=`<div class="filechip"><div class="fi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 3h9l4 4v14H6z" stroke="#1F8A4C" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 13h6M9 16h6" stroke="#1F8A4C" stroke-width="1.6" stroke-linecap="round"/></svg></div><div style="flex:1"><b>vendor_invoice_sept.xlsx</b><div class="sub">165 rows detected · uploaded 11 Sep 2026, 10:22</div></div><span class="pill p-match">Ready</span></div>`;$('#imp_next2').style.display='inline-flex';toast('File uploaded','ok');}
+function impM(){$('#imp_body').innerHTML=`
+  <div style="font-size:13px;font-weight:600;margin-bottom:12px">Map source columns to catalog fields</div>
+  <div style="overflow-x:auto"><table class="tbl"><tr><th>Source column (Excel)</th><th>Sample value</th><th>Maps to</th></tr>
+    ${[['UPC','0 12000 00934 1','Catalog UPC'],['Vendor Item Code','GB-COLA-24','Vendor Code'],['Item Description','Cola 330ml Can','Item Name'],['Size','Case of 24','Size'],['Quantity','40','Quantity'],['Existing Cost','11.90','Existing Cost'],['New Cost','11.90','New Cost'],['Item Price','14.40','Price'],['Department','Beverages','Department']].map(r=>`<tr><td><b>${r[0]}</b></td><td class="sub mono">${r[1]}</td><td><select class="sel" style="height:32px"><option selected>${r[2]}</option><option>— ignore —</option></select></td></tr>`).join('')}
+  </table></div>
+  <div class="toolbar" style="margin-top:16px">
+    <label class="switch"><input type="checkbox" checked> Auto-match by UPC</label>
+    <label class="switch"><input type="checkbox" checked> Match by Vendor Item Code</label>
+  </div>
+  <div class="summ" style="grid-template-columns:repeat(3,1fr);margin-top:6px">
+    <div class="sc b"><div class="n">18</div><div class="l">Unmatched items</div></div>
+    <div class="sc a"><div class="n">3</div><div class="l">Duplicate items</div></div>
+    <div class="sc r"><div class="n">5</div><div class="l">Invalid rows</div></div>
+  </div>
+  <div style="margin-top:8px;display:flex;justify-content:space-between"><button class="btn ghost" onclick="impStep=2;drawImp()">Back</button><button class="btn teal" onclick="impStep=4;drawImp()">Continue to review</button></div>`;
+}
+function impR(){
+  const rows=[
+    {st:'Matched',upc:'0 12000 00934 1',name:'Cola 330ml Can',vc:'GB-COLA-24',qty:40,ec:11.90,nc:11.90,price:14.40,match:'Cola 330ml Can'},
+    {st:'Matched',upc:'0 12000 55120 8',name:'Spring Water 500ml',vc:'GB-SPR-24',qty:60,ec:6.00,nc:5.90,price:7.20,match:'Spring Water 500ml'},
+    {st:'New',upc:'0 89011 20043 6',name:'Yerba Mate 330ml',vc:'GB-YERBA-12',qty:24,ec:0,nc:14.10,price:0,match:'— new —'},
+    {st:'Warn',upc:'—',name:'Coconut Water 1L',vc:'GB-COCO-12',qty:18,ec:0,nc:22.00,price:0,match:'no UPC'},
+  ];
+  const est=rows.reduce((s,r)=>s+r.qty*r.nc,0);
+  $('#imp_body').innerHTML=`
+  <div class="summ">
+    <div class="sc"><div class="n">165</div><div class="l">Total rows</div></div>
+    <div class="sc g"><div class="n">142</div><div class="l">Matched items</div></div>
+    <div class="sc b"><div class="n">18</div><div class="l">New items</div></div>
+    <div class="sc r"><div class="n">5</div><div class="l">Need review</div></div>
+    <div class="sc a"><div class="n">${money(est*40)}</div><div class="l">Est. PO total</div></div>
+  </div>
+  <div style="overflow-x:auto"><table class="tbl"><tr><th><input type="checkbox" checked></th><th>Status</th><th>UPC</th><th>Item</th><th>Vendor Code</th><th class="num">Qty</th><th class="num">Existing</th><th class="num">New Cost</th><th class="num">Price</th><th class="num">Margin</th><th>Match</th></tr>
+  ${rows.map((r,i)=>{const m=r.price?marginPct(r.price,r.nc):NaN;const pc={Matched:'p-match',New:'p-new',Warn:'p-warn'}[r.st];return `<tr><td><input type="checkbox" checked></td><td><span class="pill ${pc}">${r.st==='Warn'?'Needs review':r.st}</span></td><td class="mono sub">${esc(r.upc)}</td><td><b>${esc(r.name)}</b></td><td class="sub">${r.vc}</td><td class="num">${r.qty}</td><td class="num sub">${r.ec?money(r.ec):'—'}</td><td class="num"><input type="number" step="0.01" value="${r.nc}" style="width:74px"></td><td class="num">${r.price?money(r.price):'<span class="flag">missing</span>'}</td><td class="num ${m<0?'marginbad':''}">${r.price?mpFmt(m):'—'}</td><td class="sub">${esc(r.match)}</td></tr>`;}).join('')}
+  </table></div>
+  <div style="margin-top:18px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <button class="btn ghost" onclick="impStep=3;drawImp()">Back</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn ghost" onclick="nav('quickcomplete')">Send New Items to Quick Complete</button>
+      <button class="btn ghost" onclick="toast('Saved as draft','ok')">Save as Draft</button>
+      <button class="btn teal" onclick="impCreate()">Create Purchase Order</button>
+    </div>
+  </div>`;
+}
+function impCreate(){POS.unshift({no:'PO-1044',vendor:$('#imp_vendor')?$('#imp_vendor').value:VENDORS[0].name,date:'2026-09-11',exp:'—',items:160,cost:5480.00,status:'Pending',by:'Amir M.'});
+  openModal(`<div class="mhead"><h3>Purchase order created</h3><span class="x" onclick="closeModal()">&times;</span></div><div class="mbody"><div style="text-align:center;padding:10px"><div style="width:56px;height:56px;border-radius:50%;background:#E4F3EA;display:flex;align-items:center;justify-content:center;margin:0 auto 14px"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#1F8A4C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><b style="font-size:16px">PO-1044 created</b><p style="color:var(--slate);font-size:13px;margin-top:6px">142 matched items added. 18 new items sent to Quick Complete.</p></div></div><div class="mfoot"><button class="btn ghost" onclick="closeModal()">Close</button><button class="btn teal" onclick="closeModal();nav('pos')">View PO</button></div>`,'slim');
+}
+function downloadTemplate(){const cols=['VendorSKU','UPC','ItemName','Department','UnitOfSale','UnitsPerSellingUnit','UnitCost','SellPrice','Quantity'];const sample=['GB-COLA-24','0 12000 00934 1','Cola 330ml Can','Beverages','Case','24','11.90','14.40','40'];csvDownload('po_import_template.csv',[cols,sample]);toast('Template downloaded','ok');}
+
+/* ---- ORDERS (professional order-to-cash) ---- */
+const SICON='<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#64707D" stroke-width="1.8"/><path d="M20 20l-3.5-3.5" stroke="#64707D" stroke-width="1.8" stroke-linecap="round"/></svg>';
+const XICON='<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#C0392B" stroke-width="1.8" stroke-linecap="round"/></svg>';
+function custById(id){return CUSTOMERS.find(c=>c.id===id)||null;}
+function orderTotals(o){const sub=o.lines.reduce((s,l)=>s+l.qtyOrd*l.price,0);const disc=o.lines.reduce((s,l)=>s+(l.disc||0),0)+(o.orderDisc||0);const tax=o.lines.reduce((s,l)=>s+(l.tax||0),0);const ship=o.shipping||0;const items=o.lines.reduce((s,l)=>s+l.qtyOrd,0);return {sub,disc,tax,ship,total:sub-disc+tax+ship,items};}
+function recalcFul(o){const ord=o.lines.reduce((s,l)=>s+l.qtyOrd,0),ful=o.lines.reduce((s,l)=>s+l.qtyFul,0),back=o.lines.reduce((s,l)=>s+l.qtyBack,0);o.fstatus=ful===0?(back>0?'Backordered':'Unfulfilled'):(ful>=ord?'Fulfilled':'Partially Fulfilled');}
+function recalcInv(o){const ord=o.lines.reduce((s,l)=>s+l.qtyOrd,0),inv=o.lines.reduce((s,l)=>s+l.qtyInv,0);o.istatus=inv===0?'Not Invoiced':(inv>=ord?'Fully Invoiced':'Partially Invoiced');}
+
+let ordFilters={q:'',status:'',fstatus:'',pay:''};
+RENDER.orders=()=>{
+  host().innerHTML=`
+  <div class="phead"><div><h1>Orders</h1><div class="sub">Sales order management — fulfilment, invoicing and payments</div></div>
+    <div class="acts"><button class="btn ghost sm" onclick="toast('Bulk actions (prototype)')">Bulk Actions</button><button class="btn ghost sm" onclick="exportCSV('orders')">Export to Excel</button><button class="btn teal" onclick="toast('Create order: open a customer and use Place order')">+ Create Order</button></div></div>
+  <div class="toolbar">
+    <div class="search">${SICON}<input id="oq" placeholder="Order, customer, PO ref, item, rep…" value="${ordFilters.q}"></div>
+    <select class="sel" id="ost"><option value="">Any order status</option>${['Draft','Submitted','Confirmed','On Hold','Cancelled','Closed'].map(s=>`<option ${ordFilters.status===s?'selected':''}>${s}</option>`).join('')}</select>
+    <select class="sel" id="ofs"><option value="">Any fulfillment</option>${['Unfulfilled','Partially Fulfilled','Fulfilled','Backordered'].map(s=>`<option ${ordFilters.fstatus===s?'selected':''}>${s}</option>`).join('')}</select>
+    <select class="sel" id="opay"><option value="">Any payment</option>${['Unpaid','Partially Paid','Paid','Overdue','Refunded'].map(s=>`<option ${ordFilters.pay===s?'selected':''}>${s}</option>`).join('')}</select>
+  </div>
+  <div class="card"><div style="overflow-x:auto"><table class="tbl" id="ord_tbl"></table></div></div>`;
+  ['oq','ost','ofs','opay'].forEach(id=>$('#'+id).addEventListener('input',()=>{ordFilters={q:$('#oq').value,status:$('#ost').value,fstatus:$('#ofs').value,pay:$('#opay').value};drawOrders();}));
+  drawOrders();
+};
+function drawOrders(){
+  const rows=ORDERS.filter(o=>{
+    if(ordFilters.q){const q=ordFilters.q.toLowerCase();const hay=(o.no+' '+o.cust+' '+o.poRef+' '+o.rep+' '+o.lines.map(l=>l.name+' '+l.upc).join(' ')).toLowerCase();if(!hay.includes(q))return false;}
+    if(ordFilters.status&&o.status!==ordFilters.status)return false;
+    if(ordFilters.fstatus&&o.fstatus!==ordFilters.fstatus)return false;
+    if(ordFilters.pay&&o.pay!==ordFilters.pay)return false;
+    return true;});
+  $('#ord_tbl').innerHTML=`<tr><th>Order</th><th>Customer</th><th>Cust PO</th><th>Order Date</th><th>Req. Delivery</th><th>Rep</th><th class="num">Items</th><th class="num">Total</th><th>Fulfillment</th><th>Invoice</th><th>Payment</th><th>Action</th></tr>`+
+  (rows.length?rows.map(o=>{const gi=ORDERS.indexOf(o);const t=orderTotals(o);return `<tr><td><b>${o.no}</b><div style="margin-top:3px">${statusPill(o.status)}</div></td><td>${esc(o.cust)}</td><td class="sub">${esc(o.poRef||'—')}</td><td class="sub">${o.date}</td><td class="sub">${o.reqDate}</td><td class="sub">${esc(o.rep)}</td><td class="num">${t.items}</td><td class="num">${money(t.total)}</td><td>${statusPill(o.fstatus)}</td><td>${statusPill(o.istatus)}</td><td>${statusPill(o.pay)}</td><td><button class="btn ghost sm" onclick="orderDetail(${gi})">View</button></td></tr>`;}).join(''):`<tr><td colspan="12" style="text-align:center;color:var(--slate);padding:30px">No orders match.</td></tr>`);
+}
+
+let curOrder=null;
+function orderDetail(i){curOrder=i;const o=ORDERS[i];const c=custById(o.custId);
+  host().innerHTML=`
+  <div class="phead"><div><h1>Order ${o.no}</h1>
+    <div class="sub">${esc(o.cust)} · ordered ${o.date} · requested ${o.reqDate} · rep ${esc(o.rep)}${o.poRef?' · Cust PO '+esc(o.poRef):''}</div>
+    <div class="statgrp" style="margin-top:10px">${statusPill(o.status)} ${statusPill(o.fstatus)} ${statusPill(o.istatus)} ${statusPill(o.pay)}</div></div>
+    <div class="acts">
+      <button class="btn ghost" onclick="nav('orders')">Back</button>
+      <button class="btn ghost" onclick="addOrderItem()">Add Items</button>
+      <button class="btn ghost" onclick="logPhone()">Log Change</button>
+      <button class="btn ghost" onclick="fulfillItems()">Fulfill Items</button>
+      <button class="btn ghost" onclick="createOrderInvoice(false)">Create Invoice</button>
+      <button class="btn ghost" onclick="toast('Order printed / emailed (prototype)')">Print / Email</button>
+      <button class="btn teal" onclick="toast('Order saved','ok')">Save</button>
+    </div></div>
+  ${c&&c.status==='On Hold'?`<div class="warnbar"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 4l9 15H3z" stroke="#C0392B" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 10v4" stroke="#C0392B" stroke-width="1.7" stroke-linecap="round"/></svg><div><b>Account on hold.</b> ${esc(o.cust)} is over its credit limit (${money(c.balance)} of ${money(c.creditLimit)}). Fulfilment and invoicing are blocked until cleared.</div></div>`:''}
+  <div class="twocol">
+    <div>
+      <div class="card"><div class="ch">Line items <button class="btn ghost sm" onclick="addOrderItem()">+ Add item</button></div>
+        <div style="overflow-x:auto"><table class="tbl" id="od_tbl"></table></div></div>
+      <div class="grid2" style="margin-top:16px">
+        <div class="card" style="padding:16px"><div class="fsect">Internal notes (not shown to customer)</div><textarea rows="3" style="width:100%;border:1px solid var(--border);border-radius:9px;padding:10px;font-family:inherit;font-size:12.5px" onchange="ORDERS[curOrder].notesInt=this.value">${esc(o.notesInt)}</textarea></div>
+        <div class="card" style="padding:16px"><div class="fsect">Customer notes (on documents)</div><textarea rows="3" style="width:100%;border:1px solid var(--border);border-radius:9px;padding:10px;font-family:inherit;font-size:12.5px" onchange="ORDERS[curOrder].notesCust=this.value">${esc(o.notesCust)}</textarea></div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="padding:16px;margin-bottom:16px"><div class="fsect">Customer account</div>
+        ${c?`<div class="acctbox"><b>${esc(c.name)}</b> · ${c.acct}<br>${esc(c.contact)}<br>${c.phone} · ${esc(c.email)}<br><span class="lbl">Bill to:</span> ${esc(c.bill).replace(/\n/g,', ')}<br><span class="lbl">Ship to:</span> ${esc(c.ship).replace(/\n/g,', ')}<br><span class="lbl">Terms:</span> ${c.terms} · <span class="lbl">Credit:</span> ${statusPill(c.credit)}<br><span class="lbl">Balance:</span> ${money(c.balance)} of ${money(c.creditLimit)} limit</div><button class="btn ghost sm" style="margin-top:10px" onclick="customerDetail('${c.id}')">Open customer</button>`:'<div class="sub">No linked customer.</div>'}
+      </div>
+      <div class="card" style="padding:16px;margin-bottom:16px"><div class="fsect">Order totals</div><div id="od_tot"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;align-items:center;flex-wrap:wrap"><span style="font-size:11.5px;color:var(--slate)">Order disc.</span><input class="miniq" type="number" value="${o.orderDisc}" onchange="ORDERS[curOrder].orderDisc=parseFloat(this.value)||0;drawOrderLines()"><span style="font-size:11.5px;color:var(--slate)">Shipping</span><input class="miniq" type="number" value="${o.shipping}" onchange="ORDERS[curOrder].shipping=parseFloat(this.value)||0;drawOrderLines()"></div>
+      </div>
+      <div class="card" style="padding:16px;margin-bottom:16px"><div class="fsect">Fulfillment history</div><div id="od_ful"></div></div>
+      <div class="card" style="padding:16px"><div class="fsect">Activity timeline</div><div class="tline">${o.timeline.map(e=>`<div class="ev"><div class="tx">${esc(e.text)}</div><div class="mt">${e.when} · ${esc(e.who)}</div></div>`).join('')}</div></div>
+    </div>
+  </div>`;
+  drawOrderLines();
+}
+function drawOrderLines(){const o=ORDERS[curOrder];
+  $('#od_tbl').innerHTML=`<tr><th>UPC</th><th>SKU</th><th>Item</th><th>Dept</th><th class="num">Ord</th><th class="num">Alloc</th><th class="num">Ful</th><th class="num">Inv</th><th class="num">Back</th><th class="num">Avail</th><th class="num">Price</th><th class="num">Disc</th><th class="num">Tax</th><th class="num">Line Total</th><th></th></tr>`+
+  o.lines.map((l,i)=>{const alloc=Math.min(l.qtyOrd,l.qtyFul+l.avail);const lt=l.qtyOrd*l.price-l.disc+(l.tax||0);const locked=l.qtyInv>0;
+    let ovr='';if(l.edited){ovr='<div class="sub" style="color:var(--low)">Price overridden by '+esc(l.overrideBy||'Amir M.')+' on Sep 11, 2026'+(l.overrideReason?(' · '+esc(l.overrideReason)):(' · <span style="cursor:pointer;text-decoration:underline" onclick="priceReason('+i+')">add reason</span>'))+'</div>';}
+    const act=locked?'<span class="sub" title="Invoiced quantity is locked">Locked</span>':'<span class="iconbtn" onclick="removeOrdLine('+i+')">'+XICON+'</span>';
+    return `<tr><td class="mono sub">${esc(l.upc)}</td><td class="sub">${esc(l.sku||'—')}</td><td><b>${esc(l.name)}</b>${ovr}</td><td class="sub">${esc(l.dept)}</td>
+    <td class="num"><input class="miniq" type="number" value="${l.qtyOrd}" onchange="editOrdQty(${i},this.value)"></td>
+    <td class="num sub">${alloc}</td><td class="num">${l.qtyFul}</td><td class="num">${l.qtyInv}</td><td class="num ${l.qtyBack?'neg':''}">${l.qtyBack||0}</td><td class="num sub">${l.avail}</td>
+    <td class="num"><input class="miniq" type="number" step="0.01" value="${l.price}" onchange="editOrdPrice(${i},this.value)"></td>
+    <td class="num"><input class="miniq" type="number" step="0.01" value="${l.disc}" onchange="ORDERS[curOrder].lines[${i}].disc=parseFloat(this.value)||0;drawOrderLines()"></td>
+    <td class="num sub">${money(l.tax||0)}</td><td class="num">${money(lt)}</td><td>${act}</td></tr>`;}).join('');
+  const t=orderTotals(o);recalcFul(o);recalcInv(o);
+  $('#od_tot').innerHTML=`<div class="sumrow"><span class="lbl">Subtotal</span><b>${money(t.sub)}</b></div><div class="sumrow"><span class="lbl">Discounts</span><b>−${money(t.disc)}</b></div><div class="sumrow"><span class="lbl">Tax</span><b>${money(t.tax)}</b></div><div class="sumrow"><span class="lbl">Shipping</span><b>${money(t.ship)}</b></div><div class="sumrow big"><span>Order Total</span><span>${money(t.total)}</span></div>`;
+  const fh=$('#od_ful');if(fh)fh.innerHTML=o.fulfillments.length?o.fulfillments.map(f=>`<div style="font-size:12px;margin-bottom:8px"><b>${f.fno}</b> · ${f.date} · ${esc(f.wh)}<div class="sub">${f.lines.map(x=>esc(x.name)+' ×'+x.qty).join(', ')}</div></div>`).join(''):'<div class="sub" style="font-size:12px">No fulfilments yet.</div>';
+}
+function editOrdQty(i,val){const o=ORDERS[curOrder];const l=o.lines[i];let v=parseFloat(val)||0;if(v<l.qtyInv){toast('Cannot reduce below invoiced qty ('+l.qtyInv+'). Use a credit memo.','warn');v=l.qtyInv;}l.qtyOrd=v;drawOrderLines();}
+function editOrdPrice(i,val){const o=ORDERS[curOrder];const l=o.lines[i];const old=l.price;const nv=parseFloat(val)||0;if(nv!==old){l.price=nv;l.edited=true;l.overrideBy='Amir M.';o.timeline.push({when:'2026-09-11',who:'Amir M.',text:'Price on '+l.name+' changed from '+money(old)+' to '+money(nv)+'.'});}drawOrderLines();}
+function priceReason(i){openModal('<div class="mhead"><h3>Reason for price override</h3><span class="x" onclick="closeModal()">&times;</span></div><div class="mbody"><div class="fld"><label>Reason (required for audit)</label><input id="pr_r" placeholder="e.g. Customer contract pricing"></div></div><div class="mfoot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn teal" onclick="savePriceReason('+i+')">Save reason</button></div>','slim');}
+function savePriceReason(i){const r=$('#pr_r').value||'—';const o=ORDERS[curOrder];o.lines[i].overrideReason=r;o.timeline.push({when:'2026-09-11',who:'Amir M.',text:'Override reason for '+o.lines[i].name+': '+r});closeModal();toast('Reason saved','ok');drawOrderLines();}
+function removeOrdLine(i){const o=ORDERS[curOrder];const l=o.lines[i];if(l.qtyInv>0){toast('Line already invoiced — cannot remove','warn');return;}openModal('<div class="mhead"><h3>Remove '+esc(l.name)+'?</h3><span class="x" onclick="closeModal()">&times;</span></div><div class="mbody">Remove this line from order '+o.no+'?</div><div class="mfoot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn red" onclick="doRemoveOrdLine('+i+')">Remove</button></div>','slim');}
+function doRemoveOrdLine(i){const o=ORDERS[curOrder];const nm=o.lines[i].name;o.lines.splice(i,1);o.timeline.push({when:'2026-09-11',who:'Amir M.',text:'Removed '+nm+' from the order.'});closeModal();toast('Line removed');drawOrderLines();}
+function logPhone(){openModal('<div class="mhead"><h3>Log order change</h3><span class="x" onclick="closeModal()">&times;</span></div><div class="mbody"><div class="fld"><label>Note (added to the audit trail)</label><input id="lp_n" placeholder="e.g. Customer called and added 6 cases of Spring Water"></div></div><div class="mfoot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn teal" onclick="saveLogPhone()">Add to timeline</button></div>','slim');}
+function saveLogPhone(){const n=$('#lp_n').value||'Change logged';ORDERS[curOrder].timeline.push({when:'2026-09-11',who:'Amir M.',text:'Customer requested by phone: '+n});closeModal();toast('Logged to timeline','ok');orderDetail(curOrder);}
+function addOrderItem(){openModal('<div class="mhead"><h3>Add item to order</h3><span class="x" onclick="closeModal()">&times;</span></div><div class="mbody"><div class="search" style="margin-bottom:12px">'+SICON+'<input id="ai_q" placeholder="Search catalog by name, UPC, SKU" oninput="drawAddItems()"></div><div style="max-height:340px;overflow:auto"><table class="tbl" id="ai_tbl"></table></div></div>','wide');drawAddItems();}
+function drawAddItems(){const q=($('#ai_q').value||'').toLowerCase();const rows=ITEMS.filter(it=>it.status!=='Draft'&&(!q||(it.name+' '+it.upc+' '+it.vcode).toLowerCase().includes(q))).slice(0,20);$('#ai_tbl').innerHTML='<tr><th>Item</th><th>UPC</th><th class="num">Price</th><th class="num">Avail</th><th></th></tr>'+rows.map(it=>{const gi=ITEMS.indexOf(it);return '<tr><td><b>'+esc(it.name)+'</b><div class="sub">'+esc(it.dept)+'</div></td><td class="mono sub">'+esc(it.upc)+'</td><td class="num">'+money(it.price)+'</td><td class="num sub">'+it.qty+'</td><td><button class="btn ghost sm" onclick="addOrderLine('+gi+')">Add</button></td></tr>';}).join('');}
+function addOrderLine(gi){const it=ITEMS[gi];const o=ORDERS[curOrder];o.lines.push({upc:it.upc,sku:it.vcode,name:it.name,dept:it.dept,qtyOrd:1,qtyFul:0,qtyInv:0,qtyBack:0,avail:it.qty,price:it.price,disc:0,tax:0});o.timeline.push({when:'2026-09-11',who:'Amir M.',text:'Added '+it.name+' to the order.'});closeModal();toast(it.name+' added','ok');orderDetail(curOrder);}
+
+function fulfillItems(){const o=ORDERS[curOrder];const c=custById(o.custId);
+  if(c&&c.status==='On Hold'){toast('Account on hold — cannot fulfil','warn');return;}
+  const fno='FUL-'+(3302+o.fulfillments.length+Math.floor(Math.random()*8));
+  const rows=o.lines.map((l,i)=>({i,l,rem:l.qtyOrd-l.qtyFul,canf:Math.min(l.avail,l.qtyOrd-l.qtyFul)})).filter(r=>r.rem>0);
+  if(!rows.length){toast('Nothing left to fulfil','warn');return;}
+  openModal(`<div class="mhead"><h3>Fulfill Order ${o.no}</h3><span class="x" onclick="closeModal()">&times;</span></div>
+  <div class="mbody">
+    <div class="grid3"><div class="fld"><label>Fulfillment #</label><input class="readonly" readonly value="${fno}"></div><div class="fld"><label>Date</label><input type="date" value="2026-09-11"></div><div class="fld"><label>Warehouse</label><select><option>Main Warehouse</option><option>Overflow Depot</option></select></div></div>
+    <div class="grid3"><div class="fld"><label>Method</label><select><option>Delivery</option><option>Pickup</option><option>Courier</option></select></div><div class="fld"><label>Tracking #</label><input placeholder="Optional"></div><div class="fld"><label>Packing notes</label><input placeholder="Optional"></div></div>
+    <div style="overflow-x:auto"><table class="tbl"><tr><th>Item</th><th class="num">Ordered</th><th class="num">Prev</th><th class="num">Available</th><th class="num">Fulfill Now</th><th class="num">Remaining</th><th>Balance</th></tr>
+    ${rows.map(r=>`<tr><td><b>${esc(r.l.name)}</b>${r.l.avail<r.rem?'<div class="flag">insufficient stock</div>':''}</td><td class="num">${r.l.qtyOrd}</td><td class="num">${r.l.qtyFul}</td><td class="num">${r.l.avail}</td><td class="num"><input class="miniq" id="ff_${r.i}" type="number" value="${r.canf}" onchange="ffRem(${r.i},${r.rem})"></td><td class="num" id="fr_${r.i}">${r.rem-r.canf}</td><td><select class="sel" style="height:32px" id="fb_${r.i}"><option>Backorder</option><option>Cancel balance</option><option>Substitute</option><option>Awaiting customer</option></select></td></tr>`).join('')}
+    </table></div>
+    <div class="hint" style="font-size:11.5px;color:var(--slate);margin-top:10px">Fulfil now defaults to available (capped at remaining). Set the balance action for anything short-shipped.</div>
+  </div>
+  <div class="mfoot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn ghost" onclick="toast('Saved as draft fulfilment','ok');closeModal()">Save Draft</button><button class="btn ghost" onclick="completeFulfill('${fno}',false)">Complete Fulfillment</button><button class="btn teal" onclick="completeFulfill('${fno}',true)">Complete + Invoice</button></div>`,'wide');
+}
+function ffRem(i,rem){let v=Math.min(parseFloat($('#ff_'+i).value)||0,rem);if(v<0)v=0;$('#ff_'+i).value=v;$('#fr_'+i).textContent=rem-v;}
+function completeFulfill(fno,withInv){const o=ORDERS[curOrder];const fl=[];
+  o.lines.forEach((l,i)=>{const inp=$('#ff_'+i);if(!inp)return;let q=Math.min(parseFloat(inp.value)||0,l.qtyOrd-l.qtyFul);if(q<=0)return;const bal=$('#fb_'+i)?$('#fb_'+i).value:'Backorder';l.qtyFul+=q;l.avail=Math.max(0,l.avail-q);const rem=l.qtyOrd-l.qtyFul;if(rem>0&&bal==='Backorder')l.qtyBack=rem;if(rem>0&&bal==='Cancel balance'){l.qtyOrd=l.qtyFul;l.qtyBack=0;}fl.push({name:l.name,qty:q});});
+  if(!fl.length){toast('Enter a quantity to fulfil','warn');return;}
+  o.fulfillments.push({fno,date:'2026-09-11',wh:'Main Warehouse',method:'Delivery',tracking:'',lines:fl});
+  recalcFul(o);if(o.status==='Submitted')o.status='Confirmed';
+  o.timeline.push({when:'2026-09-11',who:'Warehouse',text:fno+': fulfilled '+fl.map(x=>x.name+' ×'+x.qty).join(', ')+'. Status now '+o.fstatus+'.'});
+  closeModal();toast('Fulfilment '+fno+' completed','ok');
+  if(withInv){createOrderInvoice(true);}else{orderDetail(curOrder);}
+}
+function createOrderInvoice(auto){const o=ORDERS[curOrder];const inv=o.lines.map(l=>({l,q:l.qtyFul-l.qtyInv})).filter(x=>x.q>0);
+  if(!inv.length){toast('No fulfilled, uninvoiced quantities to bill','warn');if(auto)orderDetail(curOrder);return;}
+  openModal(`<div class="mhead"><h3>Create invoice from ${o.no}</h3><span class="x" onclick="closeModal()">&times;</span></div><div class="mbody">Invoicing the fulfilled, not-yet-invoiced quantities:<div style="overflow-x:auto"><table class="tbl" style="margin-top:10px"><tr><th>Item</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Line</th></tr>${inv.map(x=>`<tr><td>${esc(x.l.name)}</td><td class="num">${x.q}</td><td class="num">${money(x.l.price)}</td><td class="num">${money(x.q*x.l.price)}</td></tr>`).join('')}</table></div><div class="hint" style="font-size:12px;color:var(--slate);margin-top:8px">Remaining and backordered quantities stay open on the order for a later invoice.</div></div><div class="mfoot"><button class="btn ghost" onclick="closeModal();orderDetail(curOrder)">Cancel</button><button class="btn teal" onclick="doCreateOrderInvoice()">Create Invoice</button></div>`,'wide');
+}
+function doCreateOrderInvoice(){const o=ORDERS[curOrder];const c=custById(o.custId);const no='INV-'+(5010+INVOICES.length);const lines=[];
+  o.lines.forEach(l=>{const q=l.qtyFul-l.qtyInv;if(q>0){lines.push({upc:l.upc,name:l.name,qty:q,price:l.price,disc:0,tax:+(q*l.price*0.0825).toFixed(2),fulRef:o.fulfillments.length?o.fulfillments[o.fulfillments.length-1].fno:'—'});l.qtyInv+=q;}});
+  INVOICES.unshift({no,order:o.no,custId:o.custId,cust:o.cust,poRef:o.poRef,date:'2026-09-11',due:'2026-10-11',terms:c?c.terms:'Net 30',istatus:'Open',pay:'Unpaid',edi:'Not Sent',shipping:0,payments:0,credit:0,lines});
+  recalcInv(o);o.timeline.push({when:'2026-09-11',who:'Amir M.',text:'Invoice '+no+' created for fulfilled quantities.'});
+  closeModal();toast(no+' created','ok');nav('invoices');
+}
+
+/* ---- INVOICES (accounts receivable) ---- */
+function invTotals(v){const sub=v.lines.reduce((s,l)=>s+l.qty*l.price,0);const disc=v.lines.reduce((s,l)=>s+(l.disc||0),0);const tax=v.lines.reduce((s,l)=>s+(l.tax||0),0);const ship=v.shipping||0;const total=sub-disc+tax+ship;const paid=v.payments||0;const credit=v.credit||0;return {sub,disc,tax,ship,total,paid,credit,balance:total-paid-credit};}
+function recalcPay(v){const t=invTotals(v);if(t.balance<=0.001){v.pay='Paid';if(v.istatus!=='Void'&&v.istatus!=='Credited')v.istatus='Paid';}else if(t.paid>0||t.credit>0){v.pay='Partially Paid';}else{v.pay='Unpaid';}}
+let invFilters={q:'',istatus:'',pay:'',edi:''};
+RENDER.invoices=()=>{
+  host().innerHTML=`
+  <div class="phead"><div><h1>Invoices</h1><div class="sub">Accounts receivable — billing, payments and EDI</div></div>
+    <div class="acts"><button class="btn ghost sm" onclick="toast('Send statements (prototype)')">Send Statements</button><button class="btn ghost sm" onclick="exportCSV('invoices')">Export to Excel</button><button class="btn teal" onclick="toast('Create invoice: open an order and use Create Invoice')">+ Create Invoice</button></div></div>
+  <div class="toolbar">
+    <div class="search">${SICON}<input id="iq" placeholder="Invoice, order, customer, PO, EDI ref…" value="${invFilters.q}"></div>
+    <select class="sel" id="iis"><option value="">Any invoice status</option>${['Draft','Open','Sent','Partially Paid','Paid','Overdue','Void','Credited'].map(s=>`<option ${invFilters.istatus===s?'selected':''}>${s}</option>`).join('')}</select>
+    <select class="sel" id="ipay"><option value="">Any payment</option>${['Unpaid','Partially Paid','Paid','Overdue','Refunded'].map(s=>`<option ${invFilters.pay===s?'selected':''}>${s}</option>`).join('')}</select>
+    <select class="sel" id="iedi"><option value="">Any EDI status</option>${['Not Sent','Queued','Sent','Delivered','Failed'].map(s=>`<option ${invFilters.edi===s?'selected':''}>${s}</option>`).join('')}</select>
+  </div>
+  <div class="card"><div style="overflow-x:auto"><table class="tbl" id="inv_tbl"></table></div></div>`;
+  ['iq','iis','ipay','iedi'].forEach(id=>$('#'+id).addEventListener('input',()=>{invFilters={q:$('#iq').value,istatus:$('#iis').value,pay:$('#ipay').value,edi:$('#iedi').value};drawInvoices();}));
+  drawInvoices();
+};
+function drawInvoices(){
+  const rows=INVOICES.filter(v=>{
+    if(invFilters.q){const q=invFilters.q.toLowerCase();if(!((v.no+' '+v.order+' '+v.cust+' '+(v.poRef||'')).toLowerCase().includes(q)))return false;}
+    if(invFilters.istatus&&v.istatus!==invFilters.istatus)return false;
+    if(invFilters.pay&&v.pay!==invFilters.pay)return false;
+    if(invFilters.edi&&v.edi!==invFilters.edi)return false;
+    return true;});
+  $('#inv_tbl').innerHTML=`<tr><th>Invoice</th><th>Customer</th><th>Order</th><th>Cust PO</th><th>Date</th><th>Due</th><th class="num">Total</th><th class="num">Balance</th><th>Invoice</th><th>Payment</th><th>EDI</th><th>Action</th></tr>`+
+  (rows.length?rows.map(v=>{const gi=INVOICES.indexOf(v);const t=invTotals(v);return `<tr><td><b>${v.no}</b></td><td>${esc(v.cust)}</td><td class="sub">${v.order}</td><td class="sub">${esc(v.poRef||'—')}</td><td class="sub">${v.date}</td><td class="sub">${v.due}</td><td class="num">${money(t.total)}</td><td class="num ${t.balance>0?'neg':''}">${money(t.balance)}</td><td>${statusPill(v.istatus)}</td><td>${statusPill(v.pay)}</td><td>${statusPill(v.edi)}</td><td><button class="btn ghost sm" onclick="invoiceDetail(${gi})">Open</button></td></tr>`;}).join(''):`<tr><td colspan="12" style="text-align:center;color:var(--slate);padding:30px">No invoices match.</td></tr>`);
+}
+let curInv=null;
+function invoiceDetail(i){curInv=i;const v=INVOICES[i];const c=custById(v.custId);const locked=['Paid','Void','Credited'].includes(v.istatus);
+  host().innerHTML=`
+  <div class="phead"><div><h1>Invoice ${v.no}</h1>
+    <div class="sub">Linked order ${v.order} · ${esc(v.cust)} · issued ${v.date} · due ${v.due} · ${v.terms}</div>
+    <div class="statgrp" style="margin-top:10px">${statusPill(v.istatus)} ${statusPill(v.pay)} ${statusPill(v.edi)}</div></div>
+    <div class="acts">
+      <button class="btn ghost" onclick="nav('invoices')">Back</button>
+      <button class="btn ghost" onclick="sendInvoice()">Send Invoice</button>
+      <button class="btn ghost" onclick="sendEdi()">Send EDI</button>
+      <button class="btn ghost" onclick="exportInvoice()">Export</button>
+      <button class="btn ghost" onclick="window.print()">Print</button>
+      <button class="btn amber" onclick="recordPayment()">Record Payment</button>
+      <button class="btn teal" onclick="toast('Invoice saved','ok')">Save Changes</button>
+    </div></div>
+  ${c&&(c.status==='On Hold'||c.balance>c.creditLimit)?`<div class="warnbar"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 4l9 15H3z" stroke="#C0392B" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 10v4" stroke="#C0392B" stroke-width="1.7" stroke-linecap="round"/></svg><div><b>Credit warning.</b> ${esc(v.cust)} ${c.status==='On Hold'?'is on hold':'is over its credit limit'} (${money(c.balance)} of ${money(c.creditLimit)}). Review before sending.</div></div>`:''}
+  <div class="twocol">
+    <div>
+      <div class="card"><div class="ch">Line items ${locked?'<span class="sub">Invoice finalised — line editing locked</span>':`<button class="btn ghost sm" onclick="addInvItem()">+ Add item</button>`}</div>
+        <div style="overflow-x:auto"><table class="tbl" id="iv_tbl"></table></div></div>
+      <div class="card" style="padding:16px;margin-top:16px"><div class="fsect">Invoice notes</div><textarea rows="2" style="width:100%;border:1px solid var(--border);border-radius:9px;padding:10px;font-family:inherit;font-size:12.5px" placeholder="Notes shown on the invoice document"></textarea></div>
+    </div>
+    <div>
+      <div class="card" style="padding:16px;margin-bottom:16px"><div class="fsect">Bill to / Ship to</div>
+        ${c?`<div class="acctbox"><b>${esc(c.name)}</b> · ${c.acct}<br>${esc(c.contact)} · ${c.phone}<br><span class="lbl">Bill:</span> ${esc(c.bill).replace(/\n/g,', ')}<br><span class="lbl">Ship:</span> ${esc(c.ship).replace(/\n/g,', ')}<br><span class="lbl">Cust PO:</span> ${esc(v.poRef||'—')}${c.taxExempt?'<br><span class="lbl">Tax status:</span> Tax-exempt':''}</div>`:`<div class="acctbox"><b>${esc(v.cust)}</b></div>`}
+      </div>
+      <div class="card" style="padding:16px"><div class="fsect">Financial summary</div><div id="iv_tot"></div></div>
+    </div>
+  </div>`;
+  drawInvoice();
+}
+function drawInvoice(){const v=INVOICES[curInv];const locked=['Paid','Void','Credited'].includes(v.istatus);
+  $('#iv_tbl').innerHTML=`<tr><th>UPC</th><th>Item</th><th class="num">Qty Inv.</th><th class="num">Unit Price</th><th class="num">Disc</th><th class="num">Tax</th><th class="num">Line Total</th><th>Ful. Ref</th><th></th></tr>`+
+  v.lines.map((l,i)=>{const lt=l.qty*l.price-l.disc+(l.tax||0);const ro=locked?'readonly style="width:56px;background:#F4F6F7"':'style="width:56px"';return `<tr><td class="mono sub">${esc(l.upc)}</td><td><b>${esc(l.name)}</b></td>
+    <td class="num"><input type="number" value="${l.qty}" ${ro} oninput="INVOICES[curInv].lines[${i}].qty=parseFloat(this.value)||0;drawInvoice()"></td>
+    <td class="num"><input type="number" step="0.01" value="${l.price}" ${locked?'readonly style="width:72px;background:#F4F6F7"':'style="width:72px"'} oninput="INVOICES[curInv].lines[${i}].price=parseFloat(this.value)||0;drawInvoice()"></td>
+    <td class="num"><input type="number" step="0.01" value="${l.disc}" ${locked?'readonly style="width:58px;background:#F4F6F7"':'style="width:58px"'} oninput="INVOICES[curInv].lines[${i}].disc=parseFloat(this.value)||0;drawInvoice()"></td>
+    <td class="num sub">${money(l.tax||0)}</td><td class="num">${money(lt)}</td><td class="sub">${esc(l.fulRef||'—')}</td>
+    <td>${locked?'':'<span class="iconbtn" onclick="INVOICES[curInv].lines.splice('+i+',1);drawInvoice()">'+XICON+'</span>'}</td></tr>`;}).join('');
+  const t=invTotals(v);
+  $('#iv_tot').innerHTML=`<div class="sumrow"><span class="lbl">Merchandise subtotal</span><b>${money(t.sub)}</b></div>
+  <div class="sumrow"><span class="lbl">Discounts</span><b>−${money(t.disc)}</b></div>
+  <div class="sumrow"><span class="lbl">Shipping / delivery</span><b>${money(t.ship)}</b></div>
+  <div class="sumrow"><span class="lbl">Tax</span><b>${money(t.tax)}</b></div>
+  <div class="sumrow big"><span>Invoice total</span><span>${money(t.total)}</span></div>
+  <div class="sumrow" style="margin-top:10px"><span class="lbl">Payments received</span><b>−${money(t.paid)}</b></div>
+  <div class="sumrow"><span class="lbl">Credit applied</span><b>−${money(t.credit)}</b></div>
+  <div class="sumrow big"><span>Balance due</span><span>${money(t.balance)}</span></div>`;
+}
+function sendInvoice(){const v=INVOICES[curInv];if(['Draft','Open'].includes(v.istatus)){v.istatus='Sent';toast('Invoice '+v.no+' marked as sent','ok');}else{toast('Invoice already '+v.istatus.toLowerCase());}invoiceDetail(curInv);}
+function recordPayment(){const v=INVOICES[curInv];const t=invTotals(v);openModal(`<div class="mhead"><h3>Record payment — ${v.no}</h3><span class="x" onclick="closeModal()">&times;</span></div><div class="mbody"><div class="grid2"><div class="fld"><label>Amount</label><input id="pay_amt" type="number" step="0.01" value="${t.balance.toFixed(2)}"></div><div class="fld"><label>Method</label><select><option>Bank transfer</option><option>Cash</option><option>Cheque</option><option>Card</option></select></div></div><div class="hint" style="font-size:12px;color:var(--slate)">Balance due is ${money(t.balance)}. Partial payments set the invoice to Partially Paid.</div></div><div class="mfoot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn teal" onclick="doRecordPayment()">Record Payment</button></div>`,'slim');}
+function doRecordPayment(){const amt=parseFloat($('#pay_amt').value)||0;const v=INVOICES[curInv];v.payments=(v.payments||0)+amt;recalcPay(v);closeModal();toast('Payment of '+money(amt)+' recorded','ok');invoiceDetail(curInv);}
+function addInvItem(){openModal('<div class="mhead"><h3>Add item to invoice</h3><span class="x" onclick="closeModal()">&times;</span></div><div class="mbody"><div class="search" style="margin-bottom:12px">'+SICON+'<input id="ii_q" placeholder="Search catalog" oninput="drawAddInv()"></div><div style="max-height:340px;overflow:auto"><table class="tbl" id="ii_tbl"></table></div></div>','wide');drawAddInv();}
+function drawAddInv(){const q=($('#ii_q').value||'').toLowerCase();const rows=ITEMS.filter(it=>it.status!=='Draft'&&(!q||(it.name+' '+it.upc).toLowerCase().includes(q))).slice(0,20);$('#ii_tbl').innerHTML='<tr><th>Item</th><th>UPC</th><th class="num">Price</th><th></th></tr>'+rows.map(it=>{const gi=ITEMS.indexOf(it);return '<tr><td><b>'+esc(it.name)+'</b></td><td class="mono sub">'+esc(it.upc)+'</td><td class="num">'+money(it.price)+'</td><td><button class="btn ghost sm" onclick="addInvLine('+gi+')">Add</button></td></tr>';}).join('');}
+function addInvLine(gi){const it=ITEMS[gi];INVOICES[curInv].lines.push({upc:it.upc,name:it.name,qty:1,price:it.price,disc:0,tax:+(it.price*0.0825).toFixed(2),fulRef:'manual'});closeModal();toast(it.name+' added','ok');invoiceDetail(curInv);}
+function sendEdi(){const v=INVOICES[curInv];openModal(`<div class="mhead"><h3>Send EDI document</h3><span class="x" onclick="closeModal()">&times;</span></div><div class="mbody">
+  <div class="fld"><label>Destination (customer EDI account)</label><input class="readonly" readonly value="${esc(v.cust)} · EDI ID 8894112"></div>
+  <div class="fld"><label>Document type</label><input class="readonly" readonly value="Invoice 810"></div>
+  <div class="hint" style="color:var(--slate);font-size:12px">Prototype only — no live EDI transmission is performed.</div>
+  </div><div class="mfoot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn teal" onclick="doSendEdi()">Send Invoice 810</button></div>`,'slim');}
+function doSendEdi(){const v=INVOICES[curInv];v.edi='Sent';closeModal();toast('EDI 810 sent to '+v.cust,'ok');invoiceDetail(curInv);}
+function exportInvoice(){const v=INVOICES[curInv];const rows=[['UPC','Item','Qty','Unit Price','Discount','Tax','Line Total','Fulfillment Ref']];v.lines.forEach(l=>rows.push([l.upc,l.name,l.qty,l.price,l.disc,l.tax,(l.qty*l.price-l.disc+(l.tax||0)).toFixed(2),l.fulRef||'']));csvDownload(v.no+'.csv',rows);toast('Invoice exported to CSV','ok');}
+
+/* ---- VENDORS ---- */
+RENDER.vendors=()=>{
+  host().innerHTML=`
+  <div class="phead"><div><h1>Vendors</h1><div class="sub">Suppliers and payment terms</div></div>
+    <div class="acts"><button class="btn teal" onclick="vendorModal()">+ Create New Vendor</button></div></div>
+  <div class="toolbar"><div class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#64707D" stroke-width="1.8"/><path d="M20 20l-3.5-3.5" stroke="#64707D" stroke-width="1.8" stroke-linecap="round"/></svg><input placeholder="Search vendors"></div>
+  <select class="sel"><option>Any status</option><option>Active</option><option>Inactive</option></select></div>
+  <div class="card"><div style="overflow-x:auto"><table class="tbl"><tr><th>Vendor</th><th>ID</th><th>Code</th><th>Contact</th><th>Phone</th><th>Email</th><th>Terms</th><th>Status</th><th>Last Purchase</th><th>Action</th></tr>
+  ${VENDORS.map((v,i)=>`<tr><td><b>${esc(v.name)}</b></td><td class="sub">${v.id}</td><td class="sub">${v.code}</td><td>${esc(v.contact)}</td><td class="sub">${v.phone}</td><td class="sub">${esc(v.email)}</td><td>${v.terms}</td><td>${v.active?'<span class="pill p-active">Active</span>':'<span class="pill p-inactive">Inactive</span>'}</td><td class="sub">${v.last}</td><td><span class="iconbtn" onclick="vendorModal(${i})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L18 10l-4-4L4 16z" stroke="#124559" stroke-width="1.6" stroke-linejoin="round"/></svg></span></td></tr>`).join('')}
+  </table></div></div>`;
+};
+function vendorModal(i){const v=i!=null?VENDORS[i]:null;
+  openModal(`<div class="mhead"><h3>${v?'Edit':'Create'} Vendor</h3><span class="x" onclick="closeModal()">&times;</span></div>
+  <div class="mbody"><div class="fgrid">
+    <div class="fld"><label>Vendor Name <span class="req">*</span></label><input id="v_name" value="${v?esc(v.name):''}"></div>
+    <div class="fld"><label>Vendor ID</label><input id="v_id" value="${v?v.id:'V-'+(1006+VENDORS.length)}"></div>
+  </div><div class="fgrid">
+    <div class="fld"><label>Vendor Code</label><input id="v_code" value="${v?v.code:''}"></div>
+    <div class="fld"><label>Contact Person</label><input id="v_contact" value="${v?esc(v.contact):''}"></div>
+  </div><div class="fgrid">
+    <div class="fld"><label>Email</label><input id="v_email" value="${v?esc(v.email):''}"></div>
+    <div class="fld"><label>Phone</label><input id="v_phone" value="${v?v.phone:''}"></div>
+  </div>
+  <div class="fld"><label>Address</label><input placeholder="Street, city, state"></div>
+  <div class="fgrid">
+    <div class="fld"><label>Payment Terms</label><select id="v_terms"><option>Net 15</option><option>Net 30</option><option>Net 45</option><option>Due on receipt</option></select></div>
+    <div class="fld"><label>Tax ID</label><input placeholder="Optional"></div>
+  </div>
+  <div class="fld"><label>Notes</label><textarea rows="2"></textarea></div>
+  <span class="switch"><span class="toggle" id="v_tog" onclick="this.classList.toggle('off')"></span> Active</span>
+  </div>
+  <div class="mfoot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn teal" onclick="saveVendor()">Save Vendor</button></div>`);
+  if(v){$('#v_terms').value=v.terms;if(!v.active)$('#v_tog').classList.add('off');}
+}
+function saveVendor(){const n=$('#v_name').value.trim();if(!n){toast('Vendor name required','warn');return;}VENDORS.unshift({name:n,id:$('#v_id').value,code:$('#v_code').value||'—',contact:$('#v_contact').value||'—',phone:$('#v_phone').value||'—',email:$('#v_email').value||'—',terms:$('#v_terms').value,active:!$('#v_tog').classList.contains('off'),last:'—'});closeModal();toast('Vendor saved','ok');RENDER.vendors();}
+
+/* ---- CUSTOMERS ---- */
+let custFilters={q:'',status:'',type:'',rep:'',credit:''};
+RENDER.customers=()=>{
+  const reps=[...new Set(CUSTOMERS.map(c=>c.rep).filter(r=>r&&r!=='—'))];
+  host().innerHTML=`
+  <div class="phead"><div><h1>Customers</h1><div class="sub">Account management — orders, invoices, credit and payments</div></div>
+    <div class="acts"><button class="btn ghost sm" onclick="exportCSV('customers')">Export to Excel</button><button class="btn teal" onclick="addCustomer()">+ Add Customer</button></div></div>
+  <div class="taberow">${['All','Pending Approval','Active','On Hold','Inactive'].map(s=>`<div class="tabpill ${((custFilters.status===''&&s==='All')||custFilters.status===s)?'on':''}" onclick="custFilters.status='${s==='All'?'':s}';RENDER.customers()">${s}</div>`).join('')}</div>
+  <div class="toolbar">
+    <div class="search">${SICON}<input id="cq" placeholder="Name, company, phone, email, account #" value="${custFilters.q}"></div>
+    <select class="sel" id="cty"><option value="">Any type</option>${['Retail','Wholesale','Restaurant','Grocery','Distributor','Other'].map(t=>`<option ${custFilters.type===t?'selected':''}>${t}</option>`).join('')}</select>
+    <select class="sel" id="crep"><option value="">Any rep</option>${reps.map(r=>`<option ${custFilters.rep===r?'selected':''}>${esc(r)}</option>`).join('')}</select>
+    <select class="sel" id="ccr"><option value="">Any credit</option>${['Good','Watch','Hold','N/A'].map(t=>`<option ${custFilters.credit===t?'selected':''}>${t}</option>`).join('')}</select>
+  </div>
+  <div class="card"><div style="overflow-x:auto"><table class="tbl" id="cust_tbl"></table></div></div>`;
+  $('#cq').addEventListener('input',()=>{custFilters.q=$('#cq').value;drawCustomers();});
+  ['cty','crep','ccr'].forEach(id=>$('#'+id).addEventListener('change',()=>{custFilters.type=$('#cty').value;custFilters.rep=$('#crep').value;custFilters.credit=$('#ccr').value;drawCustomers();}));
+  drawCustomers();
+};
+function drawCustomers(){
+  const rows=CUSTOMERS.filter(c=>{
+    if(custFilters.status&&c.status!==custFilters.status)return false;
+    if(custFilters.type&&c.type!==custFilters.type)return false;
+    if(custFilters.rep&&c.rep!==custFilters.rep)return false;
+    if(custFilters.credit&&c.credit!==custFilters.credit)return false;
+    if(custFilters.q){const q=custFilters.q.toLowerCase();if(!((c.name+' '+c.contact+' '+c.phone+' '+c.email+' '+c.acct).toLowerCase().includes(q)))return false;}
+    return true;});
+  $('#cust_tbl').innerHTML=`<tr><th>Customer</th><th>Account #</th><th>Contact</th><th>Phone</th><th>Email</th><th>Type</th><th>Terms</th><th>Credit</th><th>Status</th><th class="num">Open Balance</th><th>Last Order</th><th>Action</th></tr>`+
+  (rows.length?rows.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td class="sub">${c.acct}</td><td>${esc(c.contact)}</td><td class="sub">${c.phone}</td><td class="sub">${esc(c.email)}</td><td>${c.type}</td><td class="sub">${c.terms}</td><td>${statusPill(c.credit)}</td><td>${statusPill(c.status)}</td><td class="num ${c.balance>0?'neg':''}">${money(c.balance)}</td><td class="sub">${c.last}</td><td><button class="btn ghost sm" onclick="customerDetail('${c.id}')">View</button></td></tr>`).join(''):`<tr><td colspan="12" style="text-align:center;color:var(--slate);padding:30px">No customers match.</td></tr>`);
+}
+function customerDetail(id){const c=custById(id);if(!c){toast('Customer not found','warn');return;}
+  const ords=ORDERS.filter(o=>o.custId===id);const invs=INVOICES.filter(v=>v.custId===id);const openInv=invs.filter(v=>invTotals(v).balance>0.001);
+  host().innerHTML=`
+  <div class="phead"><div><h1>${esc(c.name)}</h1><div class="sub">${c.acct} · ${c.type} · rep ${esc(c.rep)}</div>
+    <div class="statgrp" style="margin-top:10px">${statusPill(c.status)} ${statusPill(c.credit)} <span class="pill p-info">${c.terms}</span></div></div>
+    <div class="acts"><button class="btn ghost" onclick="nav('customers')">Back</button><button class="btn ghost" onclick="toast('Place order (prototype)')">Place Order</button>${c.status==='On Hold'?`<button class="btn ghost" onclick="setHold('${id}',false)">Activate</button>`:`<button class="btn ghost" onclick="setHold('${id}',true)">Put on Hold</button>`}<button class="btn teal" onclick="addCustomer('${id}')">Edit</button></div></div>
+  ${c.status==='Pending Approval'?`<div class="warnbar" style="background:#FBEEDD;border-color:#F0DCC0;color:#7a5410"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#C77700" stroke-width="1.6"/><path d="M12 8v5" stroke="#C77700" stroke-width="1.7" stroke-linecap="round"/></svg><div><b>Pending approval.</b> This customer signed up through the app and is awaiting review. <span style="text-decoration:underline;cursor:pointer" onclick="approveCust('${id}')">Approve now</span></div></div>`:''}
+  <div class="twocol">
+    <div>
+      <div class="card" style="padding:16px;margin-bottom:16px"><div class="fsect">Account details</div>
+        <div class="kv"><div class="k">Primary contact</div><div>${esc(c.contact)}</div><div class="k">Phone</div><div>${c.phone}</div><div class="k">Email</div><div>${esc(c.email)}</div><div class="k">Billing address</div><div>${esc(c.bill).replace(/\n/g,', ')}</div><div class="k">Shipping address</div><div>${esc(c.ship).replace(/\n/g,', ')}</div><div class="k">Payment terms</div><div>${c.terms}</div><div class="k">Credit limit</div><div>${money(c.creditLimit)}</div><div class="k">Current balance</div><div>${money(c.balance)}</div><div class="k">Tax status</div><div>${c.taxExempt?'Tax-exempt':'Taxable'}</div><div class="k">Sales rep</div><div>${esc(c.rep)}</div></div>
+        ${c.notes?`<div class="fsect" style="margin-top:14px">Notes</div><div class="sub" style="font-size:12.5px">${esc(c.notes)}</div>`:''}</div>
+      <div class="card"><div class="ch">Order history</div><div style="overflow-x:auto"><table class="tbl"><tr><th>Order</th><th>Date</th><th class="num">Total</th><th>Fulfillment</th><th>Invoice</th><th>Payment</th></tr>${ords.length?ords.map(o=>{const gi=ORDERS.indexOf(o);return `<tr><td><b style="cursor:pointer;text-decoration:underline" onclick="orderDetail(${gi})">${o.no}</b></td><td class="sub">${o.date}</td><td class="num">${money(orderTotals(o).total)}</td><td>${statusPill(o.fstatus)}</td><td>${statusPill(o.istatus)}</td><td>${statusPill(o.pay)}</td></tr>`;}).join(''):'<tr><td colspan="6" class="sub" style="padding:16px;text-align:center">No orders yet.</td></tr>'}</table></div></div>
+    </div>
+    <div>
+      <div class="card" style="padding:16px;margin-bottom:16px"><div class="fsect">Open invoices</div>${openInv.length?openInv.map(v=>`<div class="sumrow"><span>${v.no} <span class="sub">due ${v.due}</span></span><b class="neg">${money(invTotals(v).balance)}</b></div>`).join(''):'<div class="sub" style="font-size:12.5px">No open invoices.</div>'}<div class="sumrow big" style="margin-top:6px"><span>Total outstanding</span><span>${money(openInv.reduce((s,v)=>s+invTotals(v).balance,0))}</span></div></div>
+      <div class="card" style="padding:16px;margin-bottom:16px"><div class="fsect">Invoice history</div>${invs.length?invs.map(v=>{const gi=INVOICES.indexOf(v);return `<div class="sumrow"><span style="cursor:pointer;text-decoration:underline" onclick="invoiceDetail(${gi})">${v.no}</span><span>${statusPill(v.pay)}</span></div>`;}).join(''):'<div class="sub" style="font-size:12.5px">No invoices.</div>'}</div>
+      <div class="card" style="padding:16px;margin-bottom:16px"><div class="fsect">Recent payments</div><div class="sub" style="font-size:12.5px">${invs.filter(v=>v.payments>0).length?invs.filter(v=>v.payments>0).map(v=>`<div class="sumrow"><span>${v.no}</span><b>${money(v.payments)}</b></div>`).join(''):'No payments recorded.'}</div></div>
+      <div class="card" style="padding:16px"><div class="fsect">Account activity</div><div class="tline"><div class="ev"><div class="tx">Account opened in admin.</div><div class="mt">2026-09-11 · Amir M.</div></div><div class="ev"><div class="tx">Most recent order ${ords[0]?ords[0].no:'—'}.</div><div class="mt">${c.last} · Sales</div></div><div class="ev"><div class="tx">Account created.</div><div class="mt">— · System</div></div></div></div>
+    </div>
+  </div>`;
+}
+function setHold(id,hold){const c=custById(id);c.status=hold?'On Hold':'Active';if(hold)c.credit='Hold';else if(c.credit==='Hold')c.credit='Watch';toast(hold?'Account placed on hold':'Account activated','ok');customerDetail(id);}
+function approveCust(id){const c=custById(id);c.status='Active';c.credit='Good';toast(c.name+' approved','ok');customerDetail(id);}
+function addCustomer(id){const c=id?custById(id):null;openModal(`<div class="mhead"><h3>${c?'Edit':'Add'} Customer</h3><span class="x" onclick="closeModal()">&times;</span></div><div class="mbody">
+  <div class="fgrid"><div class="fld"><label>Business name <span class="req">*</span></label><input id="c_name" value="${c?esc(c.name):''}"></div><div class="fld"><label>Account #</label><input id="c_acct" value="${c?c.acct:'ACC-'+(10400+CUSTOMERS.length)}"></div></div>
+  <div class="fgrid"><div class="fld"><label>Primary contact</label><input id="c_contact" value="${c?esc(c.contact):''}"></div><div class="fld"><label>Phone</label><input id="c_phone" value="${c?c.phone:''}"></div></div>
+  <div class="fgrid"><div class="fld"><label>Email</label><input id="c_email" value="${c?esc(c.email):''}"></div><div class="fld"><label>Type</label><select id="c_type">${['Retail','Wholesale','Restaurant','Grocery','Distributor','Other'].map(t=>`<option ${c&&c.type===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
+  <div class="fgrid"><div class="fld"><label>Payment terms</label><select id="c_terms">${['Net 15','Net 30','Net 45','Due on receipt'].map(t=>`<option ${c&&c.terms===t?'selected':''}>${t}</option>`).join('')}</select></div><div class="fld"><label>Credit limit</label><input id="c_cl" type="number" value="${c?c.creditLimit:5000}"></div></div>
+  <div class="fld"><label>Billing address</label><input id="c_bill" value="${c?esc(c.bill).replace(/\n/g,', '):''}"></div>
+  <div class="fld"><label>Shipping address</label><input id="c_ship" value="${c?esc(c.ship).replace(/\n/g,', '):''}"></div>
+  <div class="fld"><label>Notes</label><textarea id="c_notes" rows="2">${c?esc(c.notes):''}</textarea></div>
+  </div><div class="mfoot"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn teal" onclick="saveCustomer('${id||''}')">Save Customer</button></div>`,'wide');}
+function saveCustomer(id){const n=$('#c_name').value.trim();if(!n){toast('Business name required','warn');return;}
+  const data={name:n,acct:$('#c_acct').value,contact:$('#c_contact').value||'—',phone:$('#c_phone').value||'—',email:$('#c_email').value||'—',type:$('#c_type').value,terms:$('#c_terms').value,creditLimit:parseFloat($('#c_cl').value)||0,bill:$('#c_bill').value,ship:$('#c_ship').value,notes:$('#c_notes').value};
+  if(id){Object.assign(custById(id),data);toast('Customer updated','ok');closeModal();customerDetail(id);}
+  else{const nid='C-'+(2007+CUSTOMERS.length);CUSTOMERS.unshift(Object.assign({id:nid,credit:'N/A',status:'Pending Approval',balance:0,taxExempt:false,rep:'—',last:'—'},data));toast('Customer added (pending approval)','ok');closeModal();nav('customers');}
+}
+
+/* ---- USERS ---- */
+let userFilters={q:'',role:'',status:''};
+RENDER.users=()=>{
+  host().innerHTML=`
+  <div class="phead"><div><h1>Users</h1><div class="sub">Team members, roles and permissions</div></div>
+    <div class="acts"><button class="btn ghost sm" onclick="exportCSV('users')">Export</button><button class="btn teal" onclick="userModal()">+ Create User</button></div></div>
+  <div class="toolbar">
+    <div class="search">${SICON}<input id="uq" placeholder="Name, email, role, status" value="${userFilters.q}"></div>
+    <select class="sel" id="urole"><option value="">Any role</option>${ROLES.map(r=>`<option ${userFilters.role===r?'selected':''}>${r}</option>`).join('')}</select>
+    <select class="sel" id="ustat"><option value="">Any status</option><option ${userFilters.status==='Active'?'selected':''}>Active</option><option ${userFilters.status==='Inactive'?'selected':''}>Inactive</option></select>
+  </div>
+  <div class="card"><div style="overflow-x:auto"><table class="tbl" id="usr_tbl"></table></div></div>`;
+  $('#uq').addEventListener('input',()=>{userFilters.q=$('#uq').value;drawUsers();});
+  ['urole','ustat'].forEach(id=>$('#'+id).addEventListener('change',()=>{userFilters.role=$('#urole').value;userFilters.status=$('#ustat').value;drawUsers();}));
+  drawUsers();
+};
+function drawUsers(){
+  const rows=USERS.filter(u=>{
+    if(userFilters.role&&u.role!==userFilters.role)return false;
+    if(userFilters.status&&u.status!==userFilters.status)return false;
+    if(userFilters.q){const q=userFilters.q.toLowerCase();if(!((u.first+' '+u.last+' '+u.email+' '+u.role+' '+u.status).toLowerCase().includes(q)))return false;}
+    return true;});
+  $('#usr_tbl').innerHTML=`<tr><th>User</th><th>Email</th><th>Role</th><th>Department</th><th>Last Login</th><th>Status</th><th>Created</th><th>Action</th></tr>`+
+  rows.map(u=>{const gi=USERS.indexOf(u);return `<tr><td><b>${esc(u.first+' '+u.last)}</b></td><td class="sub">${esc(u.email)}</td><td>${u.role}</td><td class="sub">${u.dept}</td><td class="sub">${u.lastLogin}</td><td>${statusPill(u.status)}</td><td class="sub">${u.created}</td><td><button class="btn ghost sm" onclick="userModal(${gi})">Edit</button></td></tr>`;}).join('');
+}
+function userModal(i){const u=i!=null?USERS[i]:null;
+  openModal(`<div class="mhead"><h3>${u?'Edit':'Create'} User</h3><span class="x" onclick="closeModal()">&times;</span></div><div class="mbody">
+  <div class="fgrid"><div class="fld"><label>First name <span class="req">*</span></label><input id="u_first" value="${u?esc(u.first):''}"></div><div class="fld"><label>Last name</label><input id="u_last" value="${u?esc(u.last):''}"></div></div>
+  <div class="fgrid"><div class="fld"><label>Email <span class="req">*</span></label><input id="u_email" value="${u?esc(u.email):''}"></div><div class="fld"><label>Phone</label><input id="u_phone" value="${u?u.phone:''}"></div></div>
+  <div class="fgrid"><div class="fld"><label>Role</label><select id="u_role" onchange="document.getElementById('u_perm').textContent=ROLEPERMS[this.value]||''">${ROLES.map(r=>`<option ${u&&u.role===r?'selected':''}>${r}</option>`).join('')}</select></div><div class="fld"><label>Department</label><input id="u_dept" value="${u?esc(u.dept):''}"></div></div>
+  <div class="fgrid"><div class="fld"><label>Default location / warehouse</label><input id="u_loc" value="${u?esc(u.loc):'Main Warehouse'}"></div><div class="fld"><label>Status</label><select id="u_status"><option ${u&&u.status==='Active'?'selected':''}>Active</option><option ${u&&u.status==='Inactive'?'selected':''}>Inactive</option></select></div></div>
+  ${u?'':'<div class="fld"><label>Access</label><select id="u_invite"><option>Send email invite</option><option>Set temporary password</option></select></div>'}
+  <div class="fld"><label>Permission summary</label><div id="u_perm" style="font-size:12.5px;color:var(--slate);background:#F4F6F7;border-radius:8px;padding:10px">${u?ROLEPERMS[u.role]:ROLEPERMS[ROLES[0]]}</div></div>
+  </div><div class="mfoot">${u?`<button class="btn ghost" onclick="toast('Password reset link sent','ok')">Reset Password</button>`:''}<button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn teal" onclick="saveUser(${i!=null?i:-1})">Save User</button></div>`,'wide');
+}
+function saveUser(i){const f=$('#u_first').value.trim();const e=$('#u_email').value.trim();if(!f||!e){toast('Name and email required','warn');return;}
+  const data={first:f,last:$('#u_last').value,email:e,phone:$('#u_phone').value||'—',role:$('#u_role').value,dept:$('#u_dept').value||'—',loc:$('#u_loc').value||'—',status:$('#u_status').value};
+  if(i>=0){Object.assign(USERS[i],data);toast('User updated','ok');}
+  else{USERS.unshift(Object.assign({lastLogin:'—',created:'2026-09-11'},data));toast('User created — invite sent','ok');}
+  closeModal();RENDER.users();
+}
+
+/* ---- COMPANY DETAILS ---- */
+RENDER.company=()=>{const k=COMPANY;
+  host().innerHTML=`
+  <div class="phead"><div><h1>Company Details</h1><div class="sub">Business profile and document defaults</div></div>
+    <div class="acts"><button class="btn teal" onclick="toast('Company details saved','ok')">Save Changes</button></div></div>
+  <div class="twocol">
+    <div>
+      <div class="card" style="padding:18px;margin-bottom:16px"><div class="fsect">Business Information</div>
+        <div class="fgrid"><div class="fld"><label>Legal / business name</label><input value="${esc(k.legal)}"></div><div class="fld"><label>DBA name</label><input value="${esc(k.dba)}"></div></div>
+        <div class="fld"><label>Tax ID / EIN</label><input value="${k.ein}"></div></div>
+      <div class="card" style="padding:18px;margin-bottom:16px"><div class="fsect">Contact Information</div>
+        <div class="fgrid"><div class="fld"><label>Company email</label><input value="${esc(k.email)}"></div><div class="fld"><label>Phone</label><input value="${k.phone}"></div></div>
+        <div class="fld"><label>Website</label><input value="${esc(k.website)}"></div></div>
+      <div class="card" style="padding:18px"><div class="fsect">Addresses</div>
+        <div class="fld"><label>Billing address</label><textarea rows="2" style="width:100%;border:1px solid var(--border);border-radius:9px;padding:10px;font-family:inherit;font-size:12.5px">${esc(k.bill)}</textarea></div>
+        <div class="fld"><label>Warehouse / shipping address</label><textarea rows="2" style="width:100%;border:1px solid var(--border);border-radius:9px;padding:10px;font-family:inherit;font-size:12.5px">${esc(k.ship)}</textarea></div></div>
+    </div>
+    <div>
+      <div class="card" style="padding:18px;margin-bottom:16px"><div class="fsect">Company logo</div>
+        <div style="border:1.5px dashed var(--border);border-radius:12px;padding:26px;text-align:center;color:var(--slate);font-size:12.5px">Drop a logo here or <span style="color:var(--teal);text-decoration:underline;cursor:pointer" onclick="toast('Logo upload (prototype)')">browse</span><div style="font-size:11px;margin-top:4px">PNG or SVG, up to 1MB</div></div></div>
+      <div class="card" style="padding:18px;margin-bottom:16px"><div class="fsect">Finance &amp; Tax</div>
+        <div class="fgrid"><div class="fld"><label>Default currency</label><input value="${k.currency}"></div><div class="fld"><label>Default tax</label><input value="${k.tax}"></div></div>
+        <div class="fgrid"><div class="fld"><label>Invoice payment terms</label><input value="${k.invTerms}"></div><div class="fld"><label>PO terms</label><input value="${k.poTerms}"></div></div></div>
+      <div class="card" style="padding:18px"><div class="fsect">Document Preferences</div>
+        <div class="fgrid"><div class="fld"><label>Invoice prefix</label><input value="${k.invPrefix}"></div><div class="fld"><label>PO prefix</label><input value="${k.poPrefix}"></div></div>
+        <div class="fld"><label>Time zone</label><input value="${esc(k.tz)}"></div></div>
+    </div>
+  </div>`;
+};
+
+/* ---- CSV EXPORT ---- */
+function csvDownload(name,rows){const csv=rows.map(r=>r.map(c=>{const s=String(c==null?'':c);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();}
+function exportCSV(which){
+  if(which==='catalog'){const rows=[['UPC','Item Name','Department','Size','Qty','Cost','Price','Margin %','Vendor Code','Status']];ITEMS.forEach(i=>rows.push([i.upc,i.name,i.dept,i.size,i.qty,i.cost,i.price,i.price?marginPct(i.price,i.cost).toFixed(1):'',i.vcode,i.status]));csvDownload('catalog.csv',rows);}
+  else if(which==='pos'){const rows=[['PO','Vendor','Order Date','Expected','Items','Total','Status','Payment','By']];POS.forEach(p=>{const t=poTotals(p);rows.push([p.no,p.vendor,p.date,p.exp,t.items,t.total.toFixed(2),p.status,p.pay,p.by]);});csvDownload('purchase_orders.csv',rows);}
+  else if(which==='orders'){const rows=[['Order','Customer','Cust PO','Order Date','Req Delivery','Rep','Items','Total','Order Status','Fulfillment','Invoice','Payment']];ORDERS.forEach(o=>{const t=orderTotals(o);rows.push([o.no,o.cust,o.poRef,o.date,o.reqDate,o.rep,t.items,t.total.toFixed(2),o.status,o.fstatus,o.istatus,o.pay]);});csvDownload('orders.csv',rows);}
+  else if(which==='invoices'){const rows=[['Invoice','Customer','Order','Cust PO','Date','Due','Total','Balance','Invoice Status','Payment','EDI']];INVOICES.forEach(v=>{const t=invTotals(v);rows.push([v.no,v.cust,v.order,v.poRef,v.date,v.due,t.total.toFixed(2),t.balance.toFixed(2),v.istatus,v.pay,v.edi]);});csvDownload('invoices.csv',rows);}
+  else if(which==='customers'){const rows=[['Customer','Account','Contact','Phone','Email','Type','Terms','Credit','Status','Open Balance','Credit Limit','Rep','Last Order']];CUSTOMERS.forEach(c=>rows.push([c.name,c.acct,c.contact,c.phone,c.email,c.type,c.terms,c.credit,c.status,c.balance.toFixed(2),c.creditLimit,c.rep,c.last]));csvDownload('customers.csv',rows);}
+  else if(which==='users'){const rows=[['First','Last','Email','Phone','Role','Department','Location','Last Login','Status','Created']];USERS.forEach(u=>rows.push([u.first,u.last,u.email,u.phone,u.role,u.dept,u.loc,u.lastLogin,u.status,u.created]));csvDownload('users.csv',rows);}
+  toast('Exported to CSV','ok');
+}
+
+/* ============================================================ INIT */
+nav('dashboard');
+</script>
+</body>
+</html>
